@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
+#include <arpa/inet.h>
 
 error_code_t session_init(session_t* session) {
     if (!session) return ERR_INVALID_PARAM;
@@ -83,6 +84,41 @@ error_code_t session_recv_message(session_t* session, message_type_t* type, void
         
         err = connection_recv_raw(&session->conn, payload, header.length, &received);
         if (err != SUCCESS || received != header.length) return ERR_NETWORK_ERROR;
+        
+        if (actual_size) *actual_size = header.length;
+    } else {
+        if (actual_size) *actual_size = 0;
+    }
+    
+    session_touch_activity(session);
+    return SUCCESS;
+}
+
+error_code_t session_recv_message_timeout(session_t* session, message_type_t* type, void* payload, size_t max_payload_size, size_t* actual_size, int timeout_ms) {
+    if (!session || !type) return ERR_INVALID_PARAM;
+    
+    // First, read the header with timeout
+    message_header_t header;
+    size_t received;
+    
+    error_code_t err = connection_recv_timeout(&session->conn, &header, sizeof(header), &received, timeout_ms);
+    if (err != SUCCESS) return err;
+    if (received != sizeof(header)) return ERR_NETWORK_ERROR;
+    
+    // Convert from network byte order
+    header.type = ntohl(header.type);
+    header.length = ntohl(header.length);
+    header.sequence = ntohl(header.sequence);
+    
+    *type = (message_type_t)header.type;
+    
+    // Read payload if present (also with timeout)
+    if (header.length > 0) {
+        if (!payload || header.length > max_payload_size) return ERR_SERIALIZATION;
+        
+        err = connection_recv_timeout(&session->conn, payload, header.length, &received, timeout_ms);
+        if (err != SUCCESS) return err;
+        if (received != header.length) return ERR_NETWORK_ERROR;
         
         if (actual_size) *actual_size = header.length;
     } else {

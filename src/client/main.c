@@ -211,9 +211,19 @@ void cmd_view_challenges() {
     msg_challenge_list_t list;
     size_t size;
     
-    err = session_recv_message(&g_session, &type, &list, sizeof(list), &size);
-    if (err != SUCCESS || type != MSG_CHALLENGE_LIST) {
-        printf("❌ Error receiving response\n");
+    /* Use 5 second timeout to prevent freezing */
+    err = session_recv_message_timeout(&g_session, &type, &list, sizeof(list), &size, 5000);
+    if (err == ERR_TIMEOUT) {
+        printf("❌ Timeout: Server did not respond\n");
+        printf("💡 The server may be busy or not responding. Try again later.\n");
+        return;
+    }
+    if (err != SUCCESS) {
+        printf("❌ Error receiving response: %s\n", error_to_string(err));
+        return;
+    }
+    if (type != MSG_CHALLENGE_LIST) {
+        printf("❌ Unexpected response type from server\n");
         return;
     }
     

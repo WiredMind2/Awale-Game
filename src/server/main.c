@@ -135,7 +135,9 @@ void handle_get_challenges(session_t* session) {
         memcpy(list.challengers[i], challengers[i], MAX_PSEUDO_LEN);
     }
     
-    session_send_message(session, MSG_CHALLENGE_LIST, &list, sizeof(list));
+    /* Calculate actual size: count field + actual number of challengers */
+    size_t actual_size = sizeof(list.count) + (count * MAX_PSEUDO_LEN);
+    session_send_message(session, MSG_CHALLENGE_LIST, &list, actual_size);
 }
 
 /* Handle MSG_PLAY_MOVE */

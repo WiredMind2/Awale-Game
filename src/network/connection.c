@@ -231,9 +231,54 @@ error_code_t connection_send_timeout(connection_t* conn, const void* data, size_
 }
 
 error_code_t connection_recv_timeout(connection_t* conn, void* buffer, size_t size, size_t* received, int timeout_ms) {
-    // Simplified: just use regular recv for now
-    (void)timeout_ms;  // Suppress unused parameter warning
-    return connection_recv_raw(conn, buffer, size, received);
+    if (!conn || !buffer || size == 0) return ERR_INVALID_PARAM;
+    if (!conn->connected) return ERR_NETWORK_ERROR;
+    
+    /* Set up select() with timeout */
+    fd_set read_fds;
+    struct timeval timeout;
+    
+    FD_ZERO(&read_fds);
+    FD_SET(conn->read_sockfd, &read_fds);
+    
+    timeout.tv_sec = timeout_ms / 1000;
+    timeout.tv_usec = (timeout_ms % 1000) * 1000;
+    
+    int ret = select(conn->read_sockfd + 1, &read_fds, NULL, NULL, &timeout);
+    
+    if (ret < 0) {
+        if (errno == EINTR) return ERR_NETWORK_ERROR;
+        return ERR_NETWORK_ERROR;
+    }
+    
+    if (ret == 0) {
+        /* Timeout occurred */
+        return ERR_TIMEOUT;
+    }
+    
+    /* Data is available, proceed with read */
+    char* ptr = (char*)buffer;
+    size_t remaining = size;
+    size_t total = 0;
+
+    while (remaining > 0) {
+        ssize_t n = read(conn->read_sockfd, ptr, remaining);
+        if (n < 0) {
+            if (errno == EINTR) continue;
+            return ERR_NETWORK_ERROR;
+        }
+        if (n == 0) {
+            /* EOF / peer closed connection */
+            if (received) *received = total;
+            return ERR_NETWORK_ERROR;
+        }
+        ptr += n;
+        remaining -= (size_t)n;
+        total += (size_t)n;
+    }
+
+    if (received) *received = total;
+    return SUCCESS;
 }
 
 bool connection_is_connected(const connection_t* conn) {

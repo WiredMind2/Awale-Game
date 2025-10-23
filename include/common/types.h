@@ -30,6 +30,7 @@ typedef enum {
     ERR_SERIALIZATION = -11,
     ERR_MAX_CAPACITY = -12,
     ERR_DUPLICATE = -13,
+    ERR_TIMEOUT = -14,
     ERR_UNKNOWN = -99
 } error_code_t;
 
