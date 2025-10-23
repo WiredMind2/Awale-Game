@@ -113,4 +113,37 @@ typedef struct {
     char challengers[100][MAX_PSEUDO_LEN];
 } msg_challenge_list_t;
 
+/* MSG_LIST_GAMES / MSG_GAME_LIST */
+typedef struct {
+    char game_id[MAX_GAME_ID_LEN];
+    char player_a[MAX_PSEUDO_LEN];
+    char player_b[MAX_PSEUDO_LEN];
+    int spectator_count;
+    game_state_t state;
+} game_info_t;
+
+typedef struct {
+    int count;
+    game_info_t games[50];  /* Max 50 games */
+} msg_game_list_t;
+
+/* MSG_SPECTATE_GAME */
+typedef struct {
+    char game_id[MAX_GAME_ID_LEN];
+} msg_spectate_game_t;
+
+/* MSG_SPECTATE_ACK */
+typedef struct {
+    bool success;
+    char message[256];
+    int spectator_count;
+} msg_spectate_ack_t;
+
+/* MSG_SPECTATOR_JOINED */
+typedef struct {
+    char spectator[MAX_PSEUDO_LEN];
+    int spectator_count;
+    char game_id[MAX_GAME_ID_LEN];
+} msg_spectator_joined_t;
+
 #endif /* MESSAGES_H */

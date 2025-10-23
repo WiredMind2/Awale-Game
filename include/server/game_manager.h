@@ -2,12 +2,14 @@
 #define GAME_MANAGER_H
 
 #include "../common/types.h"
+#include "../common/messages.h"
 #include "../game/board.h"
 #include <pthread.h>
 
 #define MAX_GAMES 100
 
 /* Game instance */
+#define MAX_SPECTATORS_PER_GAME 50
 typedef struct {
     char game_id[MAX_GAME_ID_LEN];
     char player_a[MAX_PSEUDO_LEN];
@@ -15,6 +17,9 @@ typedef struct {
     board_t board;
     bool active;
     pthread_mutex_t lock;
+    /* Spectator tracking */
+    char spectators[MAX_SPECTATORS_PER_GAME][MAX_PSEUDO_LEN];
+    int spectator_count;
 } game_instance_t;
 
 /* Game manager */
@@ -47,6 +52,12 @@ error_code_t game_manager_get_board(game_manager_t* manager, const char* game_id
 int game_manager_count_active_games(game_manager_t* manager);
 int game_manager_count_player_games(game_manager_t* manager, const char* player);
 bool game_manager_is_player_in_game(game_manager_t* manager, const char* player);
+int game_manager_get_active_games(game_manager_t* manager, game_info_t* games_out, int max_games);
+
+/* Spectator management */
+error_code_t game_manager_add_spectator(game_manager_t* manager, const char* game_id, const char* spectator);
+error_code_t game_manager_remove_spectator(game_manager_t* manager, const char* game_id, const char* spectator);
+int game_manager_get_spectator_count(game_manager_t* manager, const char* game_id);
 
 /* Game ID generation */
 void game_manager_generate_id(const char* player_a, const char* player_b, char* game_id);

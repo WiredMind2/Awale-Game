@@ -65,6 +65,9 @@ error_code_t game_manager_create_game(game_manager_t* manager, const char* playe
     // Initialize board
     board_init(&game->board);
     
+    // Initialize spectators
+    game->spectator_count = 0;
+    
     game->active = true;
     manager->game_count++;
     
@@ -168,4 +171,90 @@ bool game_manager_is_player_in_game(game_manager_t* manager, const char* player)
     }
     
     return false;
+}
+
+int game_manager_get_active_games(game_manager_t* manager, game_info_t* games_out, int max_games) {
+    if (!manager || !games_out) return 0;
+    
+    int count = 0;
+    for (int i = 0; i < MAX_GAMES && count < max_games; i++) {
+        if (manager->games[i].active) {
+            snprintf(games_out[count].game_id, MAX_GAME_ID_LEN, "%s", manager->games[i].game_id);
+            snprintf(games_out[count].player_a, MAX_PSEUDO_LEN, "%s", manager->games[i].player_a);
+            snprintf(games_out[count].player_b, MAX_PSEUDO_LEN, "%s", manager->games[i].player_b);
+            games_out[count].spectator_count = manager->games[i].spectator_count;
+            games_out[count].state = manager->games[i].board.state;
+            count++;
+        }
+    }
+    
+    return count;
+}
+
+error_code_t game_manager_add_spectator(game_manager_t* manager, const char* game_id, const char* spectator) {
+    if (!manager || !game_id || !spectator) return ERR_INVALID_PARAM;
+    
+    game_instance_t* game = game_manager_find_game(manager, game_id);
+    if (!game) return ERR_GAME_NOT_FOUND;
+    
+    pthread_mutex_lock(&game->lock);
+    
+    /* Check if already spectating */
+    for (int i = 0; i < game->spectator_count; i++) {
+        if (strcmp(game->spectators[i], spectator) == 0) {
+            pthread_mutex_unlock(&game->lock);
+            return SUCCESS;  /* Already spectating */
+        }
+    }
+    
+    /* Check capacity */
+    if (game->spectator_count >= MAX_SPECTATORS_PER_GAME) {
+        pthread_mutex_unlock(&game->lock);
+        return ERR_MAX_CAPACITY;
+    }
+    
+    /* Add spectator */
+    snprintf(game->spectators[game->spectator_count], MAX_PSEUDO_LEN, "%s", spectator);
+    game->spectator_count++;
+    
+    pthread_mutex_unlock(&game->lock);
+    return SUCCESS;
+}
+
+error_code_t game_manager_remove_spectator(game_manager_t* manager, const char* game_id, const char* spectator) {
+    if (!manager || !game_id || !spectator) return ERR_INVALID_PARAM;
+    
+    game_instance_t* game = game_manager_find_game(manager, game_id);
+    if (!game) return ERR_GAME_NOT_FOUND;
+    
+    pthread_mutex_lock(&game->lock);
+    
+    /* Find and remove spectator */
+    for (int i = 0; i < game->spectator_count; i++) {
+        if (strcmp(game->spectators[i], spectator) == 0) {
+            /* Shift remaining spectators */
+            for (int j = i; j < game->spectator_count - 1; j++) {
+                snprintf(game->spectators[j], MAX_PSEUDO_LEN, "%s", game->spectators[j + 1]);
+            }
+            game->spectator_count--;
+            pthread_mutex_unlock(&game->lock);
+            return SUCCESS;
+        }
+    }
+    
+    pthread_mutex_unlock(&game->lock);
+    return ERR_PLAYER_NOT_FOUND;  /* Spectator not found */
+}
+
+int game_manager_get_spectator_count(game_manager_t* manager, const char* game_id) {
+    if (!manager || !game_id) return 0;
+    
+    game_instance_t* game = game_manager_find_game(manager, game_id);
+    if (!game) return 0;
+    
+    pthread_mutex_lock(&game->lock);
+    int count = game->spectator_count;
+    pthread_mutex_unlock(&game->lock);
+    
+    return count;
 }

@@ -24,6 +24,9 @@ typedef enum {
     MSG_PLAY_MOVE,
     MSG_GET_BOARD,
     MSG_SURRENDER,
+    MSG_LIST_GAMES,           /* List all ongoing games */
+    MSG_SPECTATE_GAME,        /* Start spectating a game */
+    MSG_STOP_SPECTATE,        /* Stop spectating */
     
     /* Server responses */
     MSG_CONNECT_ACK,
@@ -35,7 +38,10 @@ typedef enum {
     MSG_MOVE_RESULT,
     MSG_BOARD_STATE,
     MSG_GAME_OVER,
-    MSG_CHALLENGE_LIST
+    MSG_CHALLENGE_LIST,
+    MSG_GAME_LIST,            /* List of ongoing games */
+    MSG_SPECTATE_ACK,         /* Confirmation of spectate start */
+    MSG_SPECTATOR_JOINED      /* Notify players/spectators of new spectator */
 } message_type_t;
 
 /* Message header (fixed size for easy parsing) */
