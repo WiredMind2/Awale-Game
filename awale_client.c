@@ -22,6 +22,7 @@ typedef enum
     CMD_DEFIER,
     CMD_JOUER,
     CMD_GET_BOARD,
+    CMD_GET_CHALLENGES,
     CMD_QUITTER
 } client_command_t;
 
@@ -49,6 +50,8 @@ void send_challenge_command(int sockfd, const char* opponent);
 void send_play_command(int sockfd, const char* playerA, const char* playerB, int pit_index);
 void send_get_board_command(int sockfd, const char* playerA, const char* playerB);
 void send_get_board_command_silent(int sockfd, const char* playerA, const char* playerB);
+void send_get_challenges_command(int sockfd);
+
 void send_quit_command(int sockfd);
 void display_board(const struct board_state* board);
 int get_user_choice();
@@ -63,6 +66,7 @@ void print_menu()
     printf("3. Jouer un coup\n");
     printf("4. Voir l'état du plateau\n");
     printf("5. Quitter\n");
+    printf("6. Voir / accepter invitations\n");
     printf("Votre choix: ");
 }
 
@@ -484,6 +488,10 @@ int main(int argc, char **argv)
                 close(sockfd);
                 exit(0);
                 break;
+
+            case 6: // Voir / accepter invitations
+                send_get_challenges_command(sockfd);
+                break;
                 
             default:
                 printf("Choix invalide. Veuillez choisir entre 1 et 5.\n");
@@ -493,4 +501,41 @@ int main(int argc, char **argv)
     
     close(sockfd);
     return 0;
+}
+
+void send_get_challenges_command(int sockfd)
+{
+    client_command_t command = CMD_GET_CHALLENGES;
+    if (write(sockfd, &command, sizeof(command)) < 0)
+    {
+        perror("Erreur envoi commande get_challenges");
+        return;
+    }
+
+    char response[1024];
+    ssize_t n = read(sockfd, response, sizeof(response) - 1);
+    if (n <= 0)
+    {
+        printf("Aucune invitation trouvée.\n");
+        return;
+    }
+    response[n] = '\0';
+    if (strlen(response) == 0)
+    {
+        printf("Aucune invitation en attente.\n");
+        return;
+    }
+
+    printf("Invitations en attente:\n%s\n", response);
+    // Ask user if they want to accept one
+    printf("Entrez le pseudo de l'invitation à accepter (ou vide pour annuler): ");
+    char choice[100];
+    if (fgets(choice, sizeof(choice), stdin) == NULL) return;
+    size_t len = strlen(choice);
+    if (len > 0 && choice[len-1] == '\n') choice[len-1] = '\0';
+    if (strlen(choice) == 0) { printf("Aucune invitation acceptée.\n"); return; }
+
+    // Send a challenge back to accept
+    send_challenge_command(sockfd, choice);
+    printf("Invitation acceptée (challenge envoyé à %s).\n", choice);
 }

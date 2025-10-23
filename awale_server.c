@@ -23,6 +23,7 @@ typedef enum
     CMD_DEFIER,
     CMD_JOUER,
     CMD_GET_BOARD,
+    CMD_GET_CHALLENGES,
     CMD_QUITTER
 } client_command_t;
 
@@ -132,18 +133,51 @@ void find_game(const char* playerA, const char* playerB, struct board* boards, i
     *out_board = NULL; // No game found
 }
 
-void handle_list_players(int scomm)
+// Helper: does index belong to the opponent's pits for player 'pl'?
+static int is_opponent_pit_for_player(int pl, int idx)
 {
-    // Send the list of connected players
-    char list[1024] = "Connected players:\n";
-    for (int i = 0; i < shared_mem->client_count; i++)
+    if (pl == 0) return (idx >= 6 && idx <= 11);
+    return (idx >= 0 && idx <= 5);
+}
+
+// Simulate playing chosen_index on a copy of the board's pits and return 1 if opponent side becomes empty after captures
+static int simulate_result_opponent_empty_after_capture(struct board* game_board, int chosen_index, int pl)
+{
+    int temp_pits[12];
+    for (int i = 0; i < 12; i++) temp_pits[i] = game_board->pits[i];
+    int s = temp_pits[chosen_index];
+    temp_pits[chosen_index] = 0;
+
+    int idx = chosen_index;
+    while (s > 0)
     {
-        strncat(list, shared_mem->clients[i].pseudo, sizeof(list) - strlen(list) - 1);
-        strncat(list, " (", sizeof(list) - strlen(list) - 1);
-        strncat(list, shared_mem->clients[i].ip, sizeof(list) - strlen(list) - 1);
-        strncat(list, ")\n", sizeof(list) - strlen(list) - 1);
+        idx = (idx + 1) % 12;
+        if (idx == chosen_index) continue; // skip origin pit
+        temp_pits[idx]++;
+        s--;
     }
-    write(scomm, list, strlen(list));
+
+    int last = idx;
+    if (!is_opponent_pit_for_player(pl, last))
+        return 0;
+
+    int j = last;
+    while (is_opponent_pit_for_player(pl, j) && (temp_pits[j] == 2 || temp_pits[j] == 3))
+    {
+        temp_pits[j] = 0;
+        j = (j - 1 + 12) % 12;
+    }
+
+    int opp_sum = 0;
+    if (pl == 0)
+    {
+        for (int k = 6; k <= 11; k++) opp_sum += temp_pits[k];
+    }
+    else
+    {
+        for (int k = 0; k <= 5; k++) opp_sum += temp_pits[k];
+    }
+    return (opp_sum == 0) ? 1 : 0;
 }
 
 void handle_quit_command(int scomm, const char* pseudo)
@@ -151,6 +185,20 @@ void handle_quit_command(int scomm, const char* pseudo)
     printf("Client %s quitting\n", pseudo);
     close(scomm);
     exit(0);
+}
+
+void handle_list_players(int scomm)
+{
+    // Send the list of connected players
+    char list[1024];
+    int pos = snprintf(list, sizeof(list), "Connected players:\n");
+    for (int i = 0; i < shared_mem->client_count && pos < (int)sizeof(list); i++)
+    {
+        int n = snprintf(list + pos, sizeof(list) - pos, "%s (%s)\n", shared_mem->clients[i].pseudo, shared_mem->clients[i].ip);
+        if (n < 0) break;
+        pos += n;
+    }
+    write(scomm, list, strlen(list));
 }
 
 void handle_challenge_command(int scomm, const char* pseudo)
@@ -235,15 +283,32 @@ void handle_challenge_command(int scomm, const char* pseudo)
         {
             // Add new challenge
             printf("DEBUG: Adding new challenge at index %d\n", shared_mem->challenge_count);
-            strncpy(shared_mem->challenges[shared_mem->challenge_count].challenger, pseudo, sizeof(shared_mem->challenges[shared_mem->challenge_count].challenger) - 1);
-            shared_mem->challenges[shared_mem->challenge_count].challenger[sizeof(shared_mem->challenges[shared_mem->challenge_count].challenger) - 1] = '\0';
-            strncpy(shared_mem->challenges[shared_mem->challenge_count].opponent, opponent, sizeof(shared_mem->challenges[shared_mem->challenge_count].opponent) - 1);
-            shared_mem->challenges[shared_mem->challenge_count].opponent[sizeof(shared_mem->challenges[shared_mem->challenge_count].opponent) - 1] = '\0';
+            snprintf(shared_mem->challenges[shared_mem->challenge_count].challenger, sizeof(shared_mem->challenges[shared_mem->challenge_count].challenger), "%s", pseudo);
+            snprintf(shared_mem->challenges[shared_mem->challenge_count].opponent, sizeof(shared_mem->challenges[shared_mem->challenge_count].opponent), "%s", opponent);
             shared_mem->challenge_count++;
             printf("Challenge from %s to %s recorded. Waiting for %s to challenge back.\n", pseudo, opponent, opponent);
             printf("DEBUG: Challenge count increased to %d\n", shared_mem->challenge_count);
         }
     }
+}
+
+void handle_get_challenges(int scomm, const char* pseudo)
+{
+    // Build a newline-separated list of challengers who targeted 'pseudo'
+    char list[1024] = "";
+    int pos = 0;
+    for (int i = 0; i < shared_mem->challenge_count; i++)
+    {
+        if (strcmp(shared_mem->challenges[i].opponent, pseudo) == 0)
+        {
+            int n = snprintf(list + pos, sizeof(list) - pos, "%s\n", shared_mem->challenges[i].challenger);
+            if (n <= 0) break;
+            pos += n;
+        }
+    }
+    if (pos == 0)
+        list[0] = '\0';
+    write(scomm, list, strlen(list));
 }
 
 void handle_play_command(int scomm, const char* pseudo)
@@ -270,37 +335,122 @@ void handle_play_command(int scomm, const char* pseudo)
             return;
         }
 
-        // Check if it's the player's turn
-        if ((game_board->current_player == 0 && strcmp(game_board->pseudoA, pseudo) != 0) ||
-            (game_board->current_player == 1 && strcmp(game_board->pseudoB, pseudo) != 0))
+        // Whose turn is it? record locally
+        int player = game_board->current_player ? 1 : 0; // 0 => playerA, 1 => playerB
+
+        // Check if it's the player's turn (must match pseudo)
+        if ((player == 0 && strcmp(game_board->pseudoA, pseudo) != 0) ||
+            (player == 1 && strcmp(game_board->pseudoB, pseudo) != 0))
         {
             printf("It's not %s's turn\n", pseudo);
             return;
         }
 
-        // Process the move
+        // Enforce that players pick from their own side
+        if ((player == 0 && (pit_index < 0 || pit_index > 5)) || (player == 1 && (pit_index < 6 || pit_index > 11)))
         {
-            printf("%s plays pit %d\n", pseudo, player_move.pit_index);
-            game_board->current_player = !game_board->current_player; // Switch turn
-            int seeds = game_board->pits[pit_index];
-            game_board->pits[pit_index] = 0;
-            for (int off = 0; off < seeds; off++)
+            printf("Player %s attempted to pick opponent pit %d\n", pseudo, pit_index);
+            return;
+        }
+
+        int seeds = game_board->pits[pit_index];
+        if (seeds == 0)
+        {
+            printf("Player %s tried to play empty pit %d\n", pseudo, pit_index);
+            return;
+        }
+
+        printf("%s plays pit %d (seeds=%d)\n", pseudo, pit_index, seeds);
+
+        // Check feeding rule: if this move would capture all opponent seeds, but there exists another legal move that doesn't, then disallow
+        int this_move_empties_opponent = simulate_result_opponent_empty_after_capture(game_board, pit_index, player);
+        if (this_move_empties_opponent)
+        {
+            int alternative_found = 0;
+            int start = (player == 0) ? 0 : 6;
+            int end = (player == 0) ? 5 : 11;
+            for (int i = start; i <= end; i++)
             {
-                // One seed in each pit
-                int *pit = &game_board->pits[(pit_index + 1 + off) % 12];
-                if (0 < *pit && *pit <= 2)
+                if (i == pit_index) continue;
+                if (game_board->pits[i] == 0) continue;
+                if (!simulate_result_opponent_empty_after_capture(game_board, i, player))
                 {
-                    // Capture
-                    game_board->score[game_board->current_player] += *pit + 1;
-                    *pit = 0; // Mark as captured
-                }
-                else
-                {
-                    // Normal sowing
-                    (*pit)++;
+                    alternative_found = 1;
+                    break;
                 }
             }
+
+            if (alternative_found)
+            {
+                printf("Move from %s (pit %d) would starve opponent and a feeding alternative exists: move disallowed\n", pseudo, pit_index);
+                return;
+            }
         }
+
+        /* Perform actual sowing now on the real board */
+        int idx = pit_index;
+        int s = game_board->pits[pit_index];
+        game_board->pits[pit_index] = 0;
+        while (s > 0)
+        {
+            idx = (idx + 1) % 12;
+            if (idx == pit_index) continue; // skip origin pit on subsequent laps
+            game_board->pits[idx]++;
+            s--;
+        }
+
+        int last = idx;
+
+        // Capture step: only if last in opponent pit and contains 2 or 3
+        int captured_total = 0;
+        if (is_opponent_pit_for_player(player, last) && (game_board->pits[last] == 2 || game_board->pits[last] == 3))
+        {
+            int j = last;
+            while (is_opponent_pit_for_player(player, j) && (game_board->pits[j] == 2 || game_board->pits[j] == 3))
+            {
+                captured_total += game_board->pits[j];
+                game_board->pits[j] = 0;
+                j = (j - 1 + 12) % 12;
+            }
+        }
+
+        if (captured_total > 0)
+        {
+            game_board->score[player] += captured_total;
+            printf("Player %s captured %d seeds\n", pseudo, captured_total);
+        }
+
+        // If a capture (or move) left opponent with no seeds, and no alternative moves existed, award remaining seeds on player's side to player
+        int opp_sum = 0;
+        if (player == 0)
+        {
+            for (int k = 6; k <= 11; k++) opp_sum += game_board->pits[k];
+        }
+        else
+        {
+            for (int k = 0; k <= 5; k++) opp_sum += game_board->pits[k];
+        }
+
+        if (opp_sum == 0)
+        {
+            int own_sum = 0;
+            if (player == 0)
+            {
+                for (int k = 0; k <= 5; k++) { own_sum += game_board->pits[k]; game_board->pits[k] = 0; }
+            }
+            else
+            {
+                for (int k = 6; k <= 11; k++) { own_sum += game_board->pits[k]; game_board->pits[k] = 0; }
+            }
+            if (own_sum > 0)
+            {
+                game_board->score[player] += own_sum;
+                printf("Opponent has no seeds: awarding %d remaining seeds from player %d side to %s\n", own_sum, player, pseudo);
+            }
+        }
+
+        // Switch turn to the opponent (unless game termination policy requires otherwise)
+        game_board->current_player = !game_board->current_player;
     }
     else
     {
@@ -498,6 +648,10 @@ int main(int argc, char **argv)
                     else if (command == CMD_JOUER)
                     {
                         handle_play_command(scomm, pseudo);
+                    }
+                    else if (command == CMD_GET_CHALLENGES)
+                    {
+                        handle_get_challenges(scomm, pseudo);
                     }
                     else if (command == CMD_GET_BOARD)
                     {

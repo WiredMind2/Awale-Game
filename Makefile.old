@@ -1,0 +1,33 @@
+# Makefile for Awale Game
+# POSIX shell required (bash, sh). On Windows use WSL / MSYS2.
+
+CC := gcc
+CFLAGS := -Wall -Wextra -O2
+
+SERVER_SRC := awale_server.c
+CLIENT_SRC := awale_client.c
+
+BUILD_DIR := build
+SERVER_BIN := $(BUILD_DIR)/awale_server
+CLIENT_BIN := $(BUILD_DIR)/awale_client
+
+.PHONY: all server client clean run-server run-client run-example
+
+all: server client
+
+server: $(SERVER_BIN)
+
+client: $(CLIENT_BIN)
+
+$(BUILD_DIR):
+	mkdir -p $(BUILD_DIR)
+
+$(SERVER_BIN): $(SERVER_SRC) | $(BUILD_DIR)
+	$(CC) $(CFLAGS) -o $@ $^
+
+$(CLIENT_BIN): $(CLIENT_SRC) | $(BUILD_DIR)
+	$(CC) $(CFLAGS) -o $@ $^
+
+clean:
+	rm -rf $(BUILD_DIR)
+	rm -rf demo_logs
