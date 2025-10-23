@@ -16,10 +16,38 @@
 #include <arpa/inet.h>
 #include <netdb.h>
 #include <sys/socket.h>
+#include <pthread.h>
+
+/* Use protocol-defined payload size */
+#ifndef MAX_PAYLOAD_SIZE
+#define MAX_PAYLOAD_SIZE MAX_MESSAGE_SIZE
+#endif
 
 /* Global session */
 static session_t g_session;
 static char g_pseudo[MAX_PSEUDO_LEN];
+static volatile bool g_running = true;
+
+/* Pending challenges tracking */
+#define MAX_PENDING_CHALLENGES 10
+typedef struct {
+    char challenger[MAX_PSEUDO_LEN];
+    int64_t challenge_id;
+    bool active;
+} pending_challenge_t;
+
+static struct {
+    pending_challenge_t challenges[MAX_PENDING_CHALLENGES];
+    int count;
+    pthread_mutex_t lock;
+} g_pending_challenges;
+
+/* Forward declarations */
+void pending_challenges_init();
+void pending_challenges_add(const char* challenger, int64_t challenge_id);
+void pending_challenges_remove(const char* challenger);
+int pending_challenges_count();
+void* notification_listener(void* arg);
 
 /* UI Functions */
 void print_banner() {
@@ -31,13 +59,19 @@ void print_banner() {
 }
 
 void print_menu() {
+    int pending = pending_challenges_count();
+    
     printf("\n");
     printf("═════════════════════════════════════════════════════════\n");
     printf("                    MAIN MENU                            \n");
     printf("═════════════════════════════════════════════════════════\n");
     printf("  1. List connected players\n");
     printf("  2. Challenge a player\n");
-    printf("  3. View pending challenges\n");
+    printf("  3. View/Respond to challenges");
+    if (pending > 0) {
+        printf(" 🔔 [%d pending]", pending);
+    }
+    printf("\n");
     printf("  4. Play a move\n");
     printf("  5. View game board\n");
     printf("  6. Quit\n");
@@ -113,6 +147,101 @@ char* read_line(char* buffer, size_t size) {
     return buffer;
 }
 
+/* Pending challenges management */
+void pending_challenges_init() {
+    pthread_mutex_init(&g_pending_challenges.lock, NULL);
+    g_pending_challenges.count = 0;
+    for (int i = 0; i < MAX_PENDING_CHALLENGES; i++) {
+        g_pending_challenges.challenges[i].active = false;
+    }
+}
+
+void pending_challenges_add(const char* challenger, int64_t challenge_id) {
+    pthread_mutex_lock(&g_pending_challenges.lock);
+    for (int i = 0; i < MAX_PENDING_CHALLENGES; i++) {
+        if (!g_pending_challenges.challenges[i].active) {
+            snprintf(g_pending_challenges.challenges[i].challenger, MAX_PSEUDO_LEN, "%s", challenger);
+            g_pending_challenges.challenges[i].challenge_id = challenge_id;
+            g_pending_challenges.challenges[i].active = true;
+            g_pending_challenges.count++;
+            break;
+        }
+    }
+    pthread_mutex_unlock(&g_pending_challenges.lock);
+}
+
+void pending_challenges_remove(const char* challenger) {
+    pthread_mutex_lock(&g_pending_challenges.lock);
+    for (int i = 0; i < MAX_PENDING_CHALLENGES; i++) {
+        if (g_pending_challenges.challenges[i].active &&
+            strcmp(g_pending_challenges.challenges[i].challenger, challenger) == 0) {
+            g_pending_challenges.challenges[i].active = false;
+            g_pending_challenges.count--;
+            break;
+        }
+    }
+    pthread_mutex_unlock(&g_pending_challenges.lock);
+}
+
+int pending_challenges_count() {
+    pthread_mutex_lock(&g_pending_challenges.lock);
+    int count = g_pending_challenges.count;
+    pthread_mutex_unlock(&g_pending_challenges.lock);
+    return count;
+}
+
+/* Notification listener thread */
+void* notification_listener(void* arg) {
+    (void)arg;
+    
+    while (g_running) {
+        message_type_t type;
+        char payload[MAX_PAYLOAD_SIZE];
+        size_t size;
+        
+        /* Wait for notifications with 1 second timeout to allow graceful exit */
+        error_code_t err = session_recv_message_timeout(&g_session, &type, payload, 
+                                                        MAX_PAYLOAD_SIZE, &size, 1000);
+        
+        if (err == ERR_TIMEOUT) {
+            continue;  /* Normal timeout, continue listening */
+        }
+        
+        if (err != SUCCESS) {
+            if (g_running) {
+                printf("\n❌ Connection lost\n");
+            }
+            break;
+        }
+        
+        /* Handle push notifications */
+        if (type == MSG_CHALLENGE_RECEIVED) {
+            msg_challenge_received_t* notif = (msg_challenge_received_t*)payload;
+            pending_challenges_add(notif->from, notif->challenge_id);
+            printf("\n\n🔔 ═══════════════════════════════════════════════════\n");
+            printf("   CHALLENGE RECEIVED!\n");
+            printf("   %s\n", notif->message);
+            printf("   Use option 3 to accept or decline this challenge\n");
+            printf("═══════════════════════════════════════════════════\n");
+            printf("Your choice: ");
+            fflush(stdout);
+        } else if (type == MSG_GAME_STARTED) {
+            msg_game_started_t* start = (msg_game_started_t*)payload;
+            printf("\n\n🎮 ═══════════════════════════════════════════════════\n");
+            printf("   GAME STARTED!\n");
+            printf("   Game ID: %s\n", start->game_id);
+            printf("   Players: %s vs %s\n", start->player_a, start->player_b);
+            printf("   You are: %s\n", (start->your_side == PLAYER_A) ? "Player A" : "Player B");
+            printf("   Use option 5 to view the board, option 4 to play moves\n");
+            printf("═══════════════════════════════════════════════════\n");
+            printf("Your choice: ");
+            fflush(stdout);
+        }
+    }
+    
+    return NULL;
+}
+
 /* Command handlers */
 void cmd_list_players() {
     printf("\n📋 Listing connected players...\n");
@@ -173,25 +302,24 @@ void cmd_challenge() {
         return;
     }
     
+    /* Wait for acknowledgment - server responds immediately now */
     message_type_t type;
     char response[MAX_PAYLOAD_SIZE];
     size_t size;
     
-    err = session_recv_message(&g_session, &type, response, MAX_PAYLOAD_SIZE, &size);
+    err = session_recv_message_timeout(&g_session, &type, response, MAX_PAYLOAD_SIZE, &size, 5000);
+    if (err == ERR_TIMEOUT) {
+        printf("❌ Timeout: Server did not respond\n");
+        return;
+    }
     if (err != SUCCESS) {
-        printf("❌ Error receiving response\n");
+        printf("❌ Error receiving response: %s\n", error_to_string(err));
         return;
     }
     
     if (type == MSG_CHALLENGE_SENT) {
-        printf("✓ Challenge sent to %s! Waiting for them to challenge you back...\n", opponent);
-    } else if (type == MSG_GAME_STARTED) {
-        msg_game_started_t* start = (msg_game_started_t*)response;
-        printf("\n🎮 GAME STARTED!\n");
-        printf("Game ID: %s\n", start->game_id);
-        printf("Players: %s vs %s\n", start->player_a, start->player_b);
-        printf("You are: %s\n", (start->your_side == PLAYER_A) ? "Player A" : "Player B");
-        printf("\n💡 Use option 5 to view the board, option 4 to play moves\n");
+        printf("✓ Challenge sent to %s!\n", opponent);
+        printf("💡 They will receive a notification. Wait for them to accept or decline.\n");
     } else if (type == MSG_ERROR) {
         msg_error_t* error = (msg_error_t*)response;
         printf("❌ Error: %s\n", error->error_msg);
@@ -199,46 +327,101 @@ void cmd_challenge() {
 }
 
 void cmd_view_challenges() {
-    printf("\n📨 Viewing pending challenges...\n");
+    pthread_mutex_lock(&g_pending_challenges.lock);
     
-    error_code_t err = session_send_message(&g_session, MSG_GET_CHALLENGES, NULL, 0);
-    if (err != SUCCESS) {
-        printf("❌ Error sending request: %s\n", error_to_string(err));
-        return;
-    }
-    
-    message_type_t type;
-    msg_challenge_list_t list;
-    size_t size;
-    
-    /* Use 5 second timeout to prevent freezing */
-    err = session_recv_message_timeout(&g_session, &type, &list, sizeof(list), &size, 5000);
-    if (err == ERR_TIMEOUT) {
-        printf("❌ Timeout: Server did not respond\n");
-        printf("💡 The server may be busy or not responding. Try again later.\n");
-        return;
-    }
-    if (err != SUCCESS) {
-        printf("❌ Error receiving response: %s\n", error_to_string(err));
-        return;
-    }
-    if (type != MSG_CHALLENGE_LIST) {
-        printf("❌ Unexpected response type from server\n");
-        return;
-    }
-    
-    if (list.count == 0) {
+    if (g_pending_challenges.count == 0) {
+        pthread_mutex_unlock(&g_pending_challenges.lock);
         printf("\n✓ No pending challenges\n");
         return;
     }
     
-    printf("\n✓ Challenges waiting for you (%d):\n", list.count);
-    printf("─────────────────────────────\n");
-    for (int i = 0; i < list.count; i++) {
-        printf("  %d. %s wants to play!\n", i + 1, list.challengers[i]);
+    printf("\n📨 Pending challenges (%d):\n", g_pending_challenges.count);
+    printf("═══════════════════════════════════════════════════\n");
+    
+    /* Display challenges */
+    int displayed = 0;
+    for (int i = 0; i < MAX_PENDING_CHALLENGES; i++) {
+        if (g_pending_challenges.challenges[i].active) {
+            printf("  %d. %s wants to play!\n", displayed + 1, 
+                   g_pending_challenges.challenges[i].challenger);
+            displayed++;
+        }
     }
-    printf("─────────────────────────────\n");
-    printf("\n💡 To accept, use option 2 to challenge them back!\n");
+    
+    pthread_mutex_unlock(&g_pending_challenges.lock);
+    
+    printf("═══════════════════════════════════════════════════\n");
+    printf("\nChoose an option:\n");
+    printf("  [number] Accept challenge\n");
+    printf("  d[number] Decline challenge\n");
+    printf("  0 Cancel\n");
+    printf("Your choice: ");
+    
+    char choice[32];
+    if (read_line(choice, 32) == NULL || strlen(choice) == 0) {
+        return;
+    }
+    
+    /* Parse choice */
+    bool is_decline = (choice[0] == 'd' || choice[0] == 'D');
+    int index = atoi(is_decline ? choice + 1 : choice);
+    
+    if (index == 0) {
+        printf("Cancelled.\n");
+        return;
+    }
+    
+    if (index < 1 || index > displayed) {
+        printf("❌ Invalid choice\n");
+        return;
+    }
+    
+    /* Find the selected challenge */
+    pthread_mutex_lock(&g_pending_challenges.lock);
+    char selected_challenger[MAX_PSEUDO_LEN];
+    int found_index = 0;
+    bool found = false;
+    
+    for (int i = 0; i < MAX_PENDING_CHALLENGES; i++) {
+        if (g_pending_challenges.challenges[i].active) {
+            found_index++;
+            if (found_index == index) {
+                snprintf(selected_challenger, MAX_PSEUDO_LEN, "%s", 
+                         g_pending_challenges.challenges[i].challenger);
+                found = true;
+                break;
+            }
+        }
+    }
+    pthread_mutex_unlock(&g_pending_challenges.lock);
+    
+    if (!found) {
+        printf("❌ Challenge not found\n");
+        return;
+    }
+    
+    /* Send accept or decline */
+    msg_challenge_response_t response;
+    memset(&response, 0, sizeof(response));
+    snprintf(response.challenger, MAX_PSEUDO_LEN, "%s", selected_challenger);
+    
+    message_type_t msg_type = is_decline ? MSG_DECLINE_CHALLENGE : MSG_ACCEPT_CHALLENGE;
+    error_code_t err = session_send_message(&g_session, msg_type, &response, sizeof(response));
+    
+    if (err != SUCCESS) {
+        printf("❌ Error sending response: %s\n", error_to_string(err));
+        return;
+    }
+    
+    /* Remove from pending */
+    pending_challenges_remove(selected_challenger);
+    
+    if (is_decline) {
+        printf("✓ Challenge from %s declined\n", selected_challenger);
+    } else {
+        printf("✓ Challenge from %s accepted! Game will start shortly...\n", selected_challenger);
+        /* MSG_GAME_STARTED will be received by notification thread */
+    }
 }
 
 void cmd_play_move() {
@@ -552,9 +735,22 @@ int main(int argc, char** argv) {
     snprintf(g_session.session_id, sizeof(g_session.session_id), "%s", ack.session_id);
     g_session.authenticated = true;
     
+    /* Initialize pending challenges tracking */
+    pending_challenges_init();
+    
+    /* Start notification listener thread */
+    pthread_t notif_thread;
+    if (pthread_create(&notif_thread, NULL, notification_listener, NULL) != 0) {
+        printf("❌ Failed to start notification listener\n");
+        connection_close(&g_session.conn);
+        return 1;
+    }
+    
+    printf("✓ Notification listener started\n");
+    
     /* Main loop */
-    bool running = true;
-    while (running) {
+    g_running = true;
+    while (g_running) {
         print_menu();
         
         int choice;
@@ -589,7 +785,7 @@ int main(int argc, char** argv) {
             case 6:
                 printf("\n👋 Disconnecting...\n");
                 session_send_message(&g_session, MSG_DISCONNECT, NULL, 0);
-                running = false;
+                g_running = false;
                 break;
                 
             default:
@@ -597,6 +793,9 @@ int main(int argc, char** argv) {
                 break;
         }
     }
+    
+    /* Wait for notification thread to finish */
+    pthread_join(notif_thread, NULL);
     
     session_close(&g_session);
     printf("✓ Goodbye!\n\n");

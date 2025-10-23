@@ -27,6 +27,69 @@ static matchmaking_t g_matchmaking;
 static volatile bool g_running = true;
 static int g_discovery_port = 12345;  /* Discovery port for TCP connections */
 
+/* Session registry for push notifications */
+#define MAX_SESSIONS 100
+typedef struct {
+    session_t* session;
+    bool active;
+    pthread_mutex_t lock;
+} session_entry_t;
+
+static struct {
+    session_entry_t sessions[MAX_SESSIONS];
+    pthread_mutex_t lock;
+} g_session_registry;
+
+void session_registry_init() {
+    pthread_mutex_init(&g_session_registry.lock, NULL);
+    for (int i = 0; i < MAX_SESSIONS; i++) {
+        g_session_registry.sessions[i].session = NULL;
+        g_session_registry.sessions[i].active = false;
+        pthread_mutex_init(&g_session_registry.sessions[i].lock, NULL);
+    }
+}
+
+bool session_registry_add(session_t* session) {
+    pthread_mutex_lock(&g_session_registry.lock);
+    for (int i = 0; i < MAX_SESSIONS; i++) {
+        if (!g_session_registry.sessions[i].active) {
+            g_session_registry.sessions[i].session = session;
+            g_session_registry.sessions[i].active = true;
+            pthread_mutex_unlock(&g_session_registry.lock);
+            return true;
+        }
+    }
+    pthread_mutex_unlock(&g_session_registry.lock);
+    return false;
+}
+
+void session_registry_remove(session_t* session) {
+    pthread_mutex_lock(&g_session_registry.lock);
+    for (int i = 0; i < MAX_SESSIONS; i++) {
+        if (g_session_registry.sessions[i].active && 
+            g_session_registry.sessions[i].session == session) {
+            g_session_registry.sessions[i].active = false;
+            g_session_registry.sessions[i].session = NULL;
+            break;
+        }
+    }
+    pthread_mutex_unlock(&g_session_registry.lock);
+}
+
+session_t* session_registry_find(const char* pseudo) {
+    session_t* result = NULL;
+    pthread_mutex_lock(&g_session_registry.lock);
+    for (int i = 0; i < MAX_SESSIONS; i++) {
+        if (g_session_registry.sessions[i].active && 
+            strcmp(g_session_registry.sessions[i].session->pseudo, pseudo) == 0) {
+            result = g_session_registry.sessions[i].session;
+            break;
+        }
+    }
+    pthread_mutex_unlock(&g_session_registry.lock);
+    return result;
+}
+
 /* UDP broadcast discovery thread */
 void* udp_discovery_thread(void* arg) {
     (void)arg;
@@ -66,10 +129,17 @@ void handle_list_players(session_t* session) {
     }
 }
 
-/* Handle MSG_CHALLENGE */
+/* Handle MSG_CHALLENGE - New notification-based approach */
 void handle_challenge(session_t* session, const char* opponent) {
-    bool mutual_found = false;
+    /* First check if opponent exists and is online */
+    session_t* opponent_session = session_registry_find(opponent);
+    if (!opponent_session) {
+        session_send_error(session, ERR_PLAYER_NOT_FOUND, "Player not found or offline");
+        return;
+    }
     
+    /* Record the challenge */
+    bool mutual_found = false;
     error_code_t err = matchmaking_create_challenge(&g_matchmaking, session->pseudo, opponent, &mutual_found);
     
     if (err != SUCCESS) {
@@ -77,38 +147,78 @@ void handle_challenge(session_t* session, const char* opponent) {
         return;
     }
     
-    if (mutual_found) {
-        /* Both players challenged each other - start game! */
-        char game_id[MAX_GAME_ID_LEN];
-        err = game_manager_create_game(&g_game_manager, session->pseudo, opponent, game_id);
-        
-        if (err == SUCCESS) {
-            printf("🎮 Game started: %s vs %s (ID: %s)\n", session->pseudo, opponent, game_id);
-            
-            /* Send MSG_GAME_STARTED to both players would require tracking sessions
-             * For now, they'll discover it via MSG_GET_BOARD */
-            msg_game_started_t start_msg;
-            strncpy(start_msg.game_id, game_id, MAX_GAME_ID_LEN - 1);
-            start_msg.game_id[MAX_GAME_ID_LEN - 1] = '\0';
-            strncpy(start_msg.player_a, session->pseudo, MAX_PSEUDO_LEN - 1);
-            start_msg.player_a[MAX_PSEUDO_LEN - 1] = '\0';
-            strncpy(start_msg.player_b, opponent, MAX_PSEUDO_LEN - 1);
-            start_msg.player_b[MAX_PSEUDO_LEN - 1] = '\0';
-            
-            /* Determine which side this player is */
-            if (strcmp(session->pseudo, start_msg.player_a) == 0) {
-                start_msg.your_side = PLAYER_A;
-            } else {
-                start_msg.your_side = PLAYER_B;
-            }
-            
-            session_send_message(session, MSG_GAME_STARTED, &start_msg, sizeof(start_msg));
-        }
-    } else {
-        /* Challenge recorded, waiting for opponent to challenge back */
-        printf("📨 Challenge sent: %s -> %s\n", session->pseudo, opponent);
-        session_send_message(session, MSG_CHALLENGE_SENT, NULL, 0);
+    /* Send confirmation to challenger */
+    printf("📨 Challenge sent: %s -> %s\n", session->pseudo, opponent);
+    session_send_message(session, MSG_CHALLENGE_SENT, NULL, 0);
+    
+    /* Send push notification to opponent */
+    msg_challenge_received_t notification;
+    memset(&notification, 0, sizeof(notification));
+    snprintf(notification.from, MAX_PSEUDO_LEN, "%s", session->pseudo);
+    snprintf(notification.message, 256, "%s challenges you to a game!", session->pseudo);
+    notification.challenge_id = (int64_t)time(NULL);  /* Simple ID using timestamp */
+    
+    session_send_message(opponent_session, MSG_CHALLENGE_RECEIVED, &notification, sizeof(notification));
+    printf("🔔 Notification sent to %s\n", opponent);
+}
+
+/* Handle MSG_ACCEPT_CHALLENGE */
+void handle_accept_challenge(session_t* session, const char* challenger) {
+    /* Find the challenger's session */
+    session_t* challenger_session = session_registry_find(challenger);
+    if (!challenger_session) {
+        session_send_error(session, ERR_PLAYER_NOT_FOUND, "Challenger not found or offline");
+        return;
     }
+    
+    /* Create the game */
+    char game_id[MAX_GAME_ID_LEN];
+    error_code_t err = game_manager_create_game(&g_game_manager, challenger, session->pseudo, game_id);
+    
+    if (err != SUCCESS) {
+        session_send_error(session, err, "Failed to create game");
+        return;
+    }
+    
+    printf("🎮 Game started: %s vs %s (ID: %s)\n", challenger, session->pseudo, game_id);
+    
+    /* Remove the challenge from matchmaking */
+    matchmaking_remove_challenge(&g_matchmaking, challenger, session->pseudo);
+    
+    /* Send MSG_GAME_STARTED to both players */
+    msg_game_started_t start_msg;
+    memset(&start_msg, 0, sizeof(start_msg));
+    snprintf(start_msg.game_id, MAX_GAME_ID_LEN, "%s", game_id);
+    snprintf(start_msg.player_a, MAX_PSEUDO_LEN, "%s", challenger);
+    snprintf(start_msg.player_b, MAX_PSEUDO_LEN, "%s", session->pseudo);
+    
+    /* Send to accepter (Player B) */
+    start_msg.your_side = PLAYER_B;
+    session_send_message(session, MSG_GAME_STARTED, &start_msg, sizeof(start_msg));
+    
+    /* Send to challenger (Player A) */
+    start_msg.your_side = PLAYER_A;
+    session_send_message(challenger_session, MSG_GAME_STARTED, &start_msg, sizeof(start_msg));
+}
+
+/* Handle MSG_DECLINE_CHALLENGE */
+void handle_decline_challenge(session_t* session, const char* challenger) {
+    /* Remove the challenge */
+    matchmaking_remove_challenge(&g_matchmaking, challenger, session->pseudo);
+    
+    printf("❌ Challenge declined: %s -> %s\n", challenger, session->pseudo);
+    
+    /* Optionally notify the challenger */
+    session_t* challenger_session = session_registry_find(challenger);
+    if (challenger_session) {
+        msg_error_t decline_msg;
+        decline_msg.error_code = SUCCESS;
+        snprintf(decline_msg.error_msg, 256, "%s declined your challenge", session->pseudo);
+        session_send_message(challenger_session, MSG_ERROR, &decline_msg, sizeof(decline_msg));
+    }
+    
+    /* Confirm to decliner */
+    session_send_message(session, MSG_CHALLENGE_SENT, NULL, 0);  /* Reuse as ACK */
 }
 
 /* Handle MSG_GET_CHALLENGES */
@@ -227,6 +337,14 @@ void* client_handler(void* arg) {
     
     printf("✓ Client thread started for %s\n", session.pseudo);
     
+    /* Register session for push notifications */
+    if (!session_registry_add(&session)) {
+        printf("❌ Failed to register session for %s (max sessions reached)\n", session.pseudo);
+        session_close(&session);
+        free(handler);
+        return NULL;
+    }
+    
     /* Main message loop */
     while (g_running && session_is_active(&session)) {
         message_type_t msg_type;
@@ -250,6 +368,18 @@ void* client_handler(void* arg) {
             case MSG_CHALLENGE: {
                 msg_challenge_t* challenge = (msg_challenge_t*)payload;
                 handle_challenge(&session, challenge->opponent);
+                break;
+            }
+            
+            case MSG_ACCEPT_CHALLENGE: {
+                msg_challenge_response_t* response = (msg_challenge_response_t*)payload;
+                handle_accept_challenge(&session, response->challenger);
+                break;
+            }
+            
+            case MSG_DECLINE_CHALLENGE: {
+                msg_challenge_response_t* response = (msg_challenge_response_t*)payload;
+                handle_decline_challenge(&session, response->challenger);
                 break;
             }
             
@@ -282,6 +412,7 @@ void* client_handler(void* arg) {
     
 cleanup:
     printf("🔌 Client %s disconnected\n", session.pseudo);
+    session_registry_remove(&session);
     matchmaking_remove_player(&g_matchmaking, session.pseudo);
     session_close(&session);
     free(handler);
@@ -319,8 +450,11 @@ int main(int argc, char** argv) {
         return 1;
     }
     
+    session_registry_init();
+    
     printf("✓ Game manager initialized\n");
     printf("✓ Matchmaking initialized\n");
+    printf("✓ Session registry initialized\n");
     
     /* Setup signal handler */
     signal(SIGINT, signal_handler);

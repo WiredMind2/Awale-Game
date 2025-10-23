@@ -149,3 +149,23 @@ bool matchmaking_player_exists(matchmaking_t* mm, const char* pseudo) {
     pthread_mutex_unlock(&mm->lock);
     return false;
 }
+
+error_code_t matchmaking_remove_challenge(matchmaking_t* mm, const char* challenger, const char* opponent) {
+    if (!mm || !challenger || !opponent) return ERR_INVALID_PARAM;
+    
+    pthread_mutex_lock(&mm->lock);
+    
+    for (int i = 0; i < MAX_CHALLENGES; i++) {
+        if (mm->challenges[i].active &&
+            strcmp(mm->challenges[i].challenger, challenger) == 0 &&
+            strcmp(mm->challenges[i].opponent, opponent) == 0) {
+            mm->challenges[i].active = false;
+            mm->challenge_count--;
+            pthread_mutex_unlock(&mm->lock);
+            return SUCCESS;
+        }
+    }
+    
+    pthread_mutex_unlock(&mm->lock);
+    return ERR_GAME_NOT_FOUND;  /* Challenge not found */
+}

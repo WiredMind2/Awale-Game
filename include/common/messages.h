@@ -42,11 +42,17 @@ typedef struct {
     char opponent[MAX_PSEUDO_LEN];
 } msg_challenge_t;
 
-/* MSG_CHALLENGE_RECEIVED */
+/* MSG_CHALLENGE_RECEIVED - Push notification to opponent */
 typedef struct {
     char from[MAX_PSEUDO_LEN];
     char message[256];
+    int64_t challenge_id;  /* Unique ID to accept/decline */
 } msg_challenge_received_t;
+
+/* MSG_ACCEPT_CHALLENGE / MSG_DECLINE_CHALLENGE */
+typedef struct {
+    char challenger[MAX_PSEUDO_LEN];  /* Who originally challenged */
+} msg_challenge_response_t;
 
 /* MSG_GAME_STARTED */
 typedef struct {
