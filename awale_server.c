@@ -23,6 +23,7 @@ typedef enum
     CMD_DEFIER,
     CMD_JOUER,
     CMD_GET_BOARD,
+    CMD_GET_CHALLENGES,
     CMD_QUITTER
 } client_command_t;
 
@@ -289,6 +290,25 @@ void handle_challenge_command(int scomm, const char* pseudo)
             printf("DEBUG: Challenge count increased to %d\n", shared_mem->challenge_count);
         }
     }
+}
+
+void handle_get_challenges(int scomm, const char* pseudo)
+{
+    // Build a newline-separated list of challengers who targeted 'pseudo'
+    char list[1024] = "";
+    int pos = 0;
+    for (int i = 0; i < shared_mem->challenge_count; i++)
+    {
+        if (strcmp(shared_mem->challenges[i].opponent, pseudo) == 0)
+        {
+            int n = snprintf(list + pos, sizeof(list) - pos, "%s\n", shared_mem->challenges[i].challenger);
+            if (n <= 0) break;
+            pos += n;
+        }
+    }
+    if (pos == 0)
+        list[0] = '\0';
+    write(scomm, list, strlen(list));
 }
 
 void handle_play_command(int scomm, const char* pseudo)
@@ -628,6 +648,10 @@ int main(int argc, char **argv)
                     else if (command == CMD_JOUER)
                     {
                         handle_play_command(scomm, pseudo);
+                    }
+                    else if (command == CMD_GET_CHALLENGES)
+                    {
+                        handle_get_challenges(scomm, pseudo);
                     }
                     else if (command == CMD_GET_BOARD)
                     {

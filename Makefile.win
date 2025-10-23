@@ -1,0 +1,111 @@
+# Makefile for Awale Game - Windows (MinGW)
+# Modular Architecture
+
+# Compiler and flags
+CC := gcc
+CFLAGS := -Wall -Wextra -std=c11 -O2 -I./include
+LDFLAGS := -lws2_32 -lpthread
+
+# Directories
+SRC_DIR := src
+BUILD_DIR := build
+INC_DIR := include
+
+# Source files (use explicit lists for Windows)
+COMMON_SRC := src/common/types.c src/common/protocol.c
+GAME_SRC := src/game/board.c src/game/rules.c src/game/player.c
+NETWORK_SRC := src/network/connection.c src/network/session.c src/network/serialization.c
+SERVER_SRC := src/server/game_manager.c src/server/matchmaking.c src/server/main.c
+CLIENT_SRC := src/client/main.c
+
+# Object files
+COMMON_OBJ := $(BUILD_DIR)/common/types.o $(BUILD_DIR)/common/protocol.o
+GAME_OBJ := $(BUILD_DIR)/game/board.o $(BUILD_DIR)/game/rules.o $(BUILD_DIR)/game/player.o
+NETWORK_OBJ := $(BUILD_DIR)/network/connection.o $(BUILD_DIR)/network/session.o $(BUILD_DIR)/network/serialization.o
+SERVER_OBJ := $(BUILD_DIR)/server/game_manager.o $(BUILD_DIR)/server/matchmaking.o $(BUILD_DIR)/server/main.o
+CLIENT_OBJ := $(BUILD_DIR)/client/main.o
+
+# Shared objects
+SHARED_OBJ := $(COMMON_OBJ) $(GAME_OBJ) $(NETWORK_OBJ)
+
+# Binaries
+SERVER_BIN := $(BUILD_DIR)/awale_server.exe
+CLIENT_BIN := $(BUILD_DIR)/awale_client.exe
+
+# Default target
+all: dirs server client
+
+# Create directories
+dirs:
+	@if not exist "$(BUILD_DIR)" mkdir "$(BUILD_DIR)"
+	@if not exist "$(BUILD_DIR)\common" mkdir "$(BUILD_DIR)\common"
+	@if not exist "$(BUILD_DIR)\game" mkdir "$(BUILD_DIR)\game"
+	@if not exist "$(BUILD_DIR)\network" mkdir "$(BUILD_DIR)\network"
+	@if not exist "$(BUILD_DIR)\server" mkdir "$(BUILD_DIR)\server"
+	@if not exist "$(BUILD_DIR)\client" mkdir "$(BUILD_DIR)\client"
+
+# Build server
+server: $(SERVER_BIN)
+
+# Build client
+client: $(CLIENT_BIN)
+
+# Link server
+$(SERVER_BIN): $(SHARED_OBJ) $(SERVER_OBJ)
+	@echo Linking server...
+	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
+	@echo Server built: $@
+
+# Link client
+$(CLIENT_BIN): $(SHARED_OBJ) $(CLIENT_OBJ)
+	@echo Linking client...
+	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
+	@echo Client built: $@
+
+# Compile common objects
+$(BUILD_DIR)/common/%.o: src/common/%.c
+	@echo Compiling $<...
+	$(CC) $(CFLAGS) -c $< -o $@
+
+# Compile game objects
+$(BUILD_DIR)/game/%.o: src/game/%.c
+	@echo Compiling $<...
+	$(CC) $(CFLAGS) -c $< -o $@
+
+# Compile network objects
+$(BUILD_DIR)/network/%.o: src/network/%.c
+	@echo Compiling $<...
+	$(CC) $(CFLAGS) -c $< -o $@
+
+# Compile server objects
+$(BUILD_DIR)/server/%.o: src/server/%.c
+	@echo Compiling $<...
+	$(CC) $(CFLAGS) -c $< -o $@
+
+# Compile client objects
+$(BUILD_DIR)/client/%.o: src/client/%.c
+	@echo Compiling $<...
+	$(CC) $(CFLAGS) -c $< -o $@
+
+# Clean
+clean:
+	@if exist "$(BUILD_DIR)" rmdir /s /q "$(BUILD_DIR)"
+	@echo Cleaned build directory
+
+# Help
+help:
+	@echo Awale Game - Windows Build System
+	@echo ==================================
+	@echo Targets:
+	@echo   all     - Build everything (default)
+	@echo   server  - Build server only
+	@echo   client  - Build client only
+	@echo   clean   - Remove all build artifacts
+	@echo   help    - Show this help message
+	@echo.
+	@echo Usage:
+	@echo   mingw32-make -f Makefile.win
+	@echo   mingw32-make -f Makefile.win server
+	@echo   mingw32-make -f Makefile.win client
+
+.PHONY: all dirs server client clean help
