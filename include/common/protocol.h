@@ -10,6 +10,9 @@
 typedef enum {
     MSG_UNKNOWN = 0,
     
+    /* Connection negotiation */
+    MSG_PORT_NEGOTIATION,
+    
     /* Client requests */
     MSG_CONNECT,
     MSG_DISCONNECT,

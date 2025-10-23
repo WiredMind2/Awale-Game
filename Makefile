@@ -51,7 +51,9 @@ help:
 	@echo "  all          - Build server and client (default)"
 	@echo "  server       - Build server only"
 	@echo "  client       - Build client only"
-	@echo "  test         - Build and run tests"
+	@echo "  test         - Build and run all tests"
+	@echo "  test-game    - Run game logic tests only"
+	@echo "  test-network - Run network layer tests only"
 	@echo "  clean        - Remove build artifacts"
 	@echo "  dirs         - Create necessary directories"
 	@echo "  run-server   - Build and run server on port 12345"
@@ -97,24 +99,48 @@ debug: CFLAGS += -g -DDEBUG -O0
 debug: clean all
 	@echo "✓ Debug build complete"
 
-# Test target (basic for now)
-test: dirs
-	@echo "Building tests..."
-	@echo "⚠ Test framework not yet implemented"
+# Test binaries
+TEST_GAME_LOGIC := $(BUILD_DIR)/test_game_logic
+TEST_NETWORK := $(BUILD_DIR)/test_network
 
-# Run server
+# Test targets
+test: test-game test-network
+	@echo ""
+	@echo "═══════════════════════════════════════════════════════"
+	@echo "  ✓ All tests completed successfully!"
+	@echo "═══════════════════════════════════════════════════════"
+
+test-game: dirs $(TEST_GAME_LOGIC)
+	@echo "Running game logic tests..."
+	@$(TEST_GAME_LOGIC)
+
+test-network: dirs $(TEST_NETWORK)
+	@echo "Running network layer tests..."
+	@$(TEST_NETWORK)
+
+$(TEST_GAME_LOGIC): $(COMMON_OBJ) $(GAME_OBJ) tests/test_game_logic.c
+	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
+
+$(TEST_NETWORK): $(COMMON_OBJ) $(NETWORK_OBJ) tests/test_network.c
+	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
+
+# Run server (discovery port with UDP broadcast support)
+DISCOVERY_PORT ?= 12345
+
 run-server: server
-	@echo "Starting Awale server on port 12345..."
-	$(SERVER_BIN) 12345
+	@echo "Starting Awale server..."
+	@echo "  Discovery Port (TCP): $(DISCOVERY_PORT)"
+	@echo "  Broadcast Port (UDP): 12346"
+	@echo "Clients will discover server automatically via UDP broadcast."
+	$(SERVER_BIN) $(DISCOVERY_PORT)
 
 # Run client (use PSEUDO=name to set player name)
 PSEUDO ?= Player1
-HOST ?= 127.0.0.1
-PORT ?= 12345
 
 run-client: client
-	@echo "Connecting to server as $(PSEUDO)..."
-	$(CLIENT_BIN) $(HOST) $(PORT) $(PSEUDO)
+	@echo "Connecting as $(PSEUDO)..."
+	@echo "Server will be discovered automatically via UDP broadcast."
+	$(CLIENT_BIN) $(PSEUDO)
 
 # Clean build artifacts
 clean:

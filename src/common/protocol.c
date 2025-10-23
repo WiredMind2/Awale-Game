@@ -4,6 +4,7 @@
 const char* message_type_to_string(message_type_t type) {
     switch (type) {
         case MSG_UNKNOWN: return "UNKNOWN";
+        case MSG_PORT_NEGOTIATION: return "PORT_NEGOTIATION";
         case MSG_CONNECT: return "CONNECT";
         case MSG_DISCONNECT: return "DISCONNECT";
         case MSG_LIST_PLAYERS: return "LIST_PLAYERS";

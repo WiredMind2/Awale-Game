@@ -13,6 +13,9 @@
 #include <string.h>
 #include <unistd.h>
 #include <ctype.h>
+#include <arpa/inet.h>
+#include <netdb.h>
+#include <sys/socket.h>
 
 /* Global session */
 static session_t g_session;
@@ -361,29 +364,144 @@ void cmd_view_board() {
 }
 
 int main(int argc, char** argv) {
-    if (argc != 4) {
-        printf("Usage: %s <host> <port> <pseudo>\n", argv[0]);
+    if (argc < 2) {
+        printf("Usage: %s <pseudo>\n", argv[0]);
+        printf("  pseudo: Your player name\n");
+        printf("  Server will be discovered automatically via UDP broadcast.\n");
         return 1;
     }
     
-    const char* host = argv[1];
-    int port = atoi(argv[2]);
-    strncpy(g_pseudo, argv[3], MAX_PSEUDO_LEN - 1);
+    strncpy(g_pseudo, argv[1], MAX_PSEUDO_LEN - 1);
     g_pseudo[MAX_PSEUDO_LEN - 1] = '\0';
     
     print_banner();
-    printf("Connecting to %s:%d as '%s'...\n", host, port, g_pseudo);
+    printf("Player: %s\n", g_pseudo);
+    printf("🔍 Broadcasting discovery request on local network...\n");
     
-    /* Connect to server */
-    session_init(&g_session);
-    
-    error_code_t err = connection_connect(&g_session.conn, host, port);
+    /* Step 1: UDP broadcast to discover server */
+    discovery_response_t discovery;
+    error_code_t err = connection_broadcast_discovery(&discovery, 5);  /* 5 second timeout */
     if (err != SUCCESS) {
-        printf("❌ Failed to connect to server: %s\n", error_to_string(err));
+        printf("❌ No server found on local network\n");
+        printf("   Make sure the server is running and on the same network.\n");
+        return 1;
+    }
+    
+    printf("✓ Server discovered at %s:%d\n", discovery.server_ip, discovery.discovery_port);
+    
+    /* Step 2: Connect to discovery port */
+    connection_t discovery_conn;
+    connection_init(&discovery_conn);
+    
+    discovery_conn.read_sockfd = socket(AF_INET, SOCK_STREAM, 0);
+    if (discovery_conn.read_sockfd < 0) {
+        printf("❌ Failed to create socket\n");
+        return 1;
+    }
+    
+    struct sockaddr_in server_addr;
+    memset(&server_addr, 0, sizeof(server_addr));
+    server_addr.sin_family = AF_INET;
+    server_addr.sin_port = htons(discovery.discovery_port);
+    inet_pton(AF_INET, discovery.server_ip, &server_addr.sin_addr);
+    
+    if (connect(discovery_conn.read_sockfd, (struct sockaddr*)&server_addr, sizeof(server_addr)) < 0) {
+        printf("❌ Failed to connect to server\n");
+        close(discovery_conn.read_sockfd);
         return 1;
     }
     
     printf("✓ Connected to server\n");
+    
+    /* Step 3: Find a free port for client to listen on */
+    int client_port;
+    err = connection_find_free_port(&client_port);
+    if (err != SUCCESS) {
+        printf("❌ Failed to find free port\n");
+        connection_close(&discovery_conn);
+        return 1;
+    }
+    
+    printf("   Client will listen on port: %d\n", client_port);
+    
+    /* Step 4: Send client's listening port to server */
+    msg_port_negotiation_t client_port_msg;
+    client_port_msg.my_port = htonl(client_port);
+    
+    err = connection_send_raw(&discovery_conn, &client_port_msg, sizeof(client_port_msg));
+    if (err != SUCCESS) {
+        printf("❌ Failed to send port to server\n");
+        connection_close(&discovery_conn);
+        return 1;
+    }
+    
+    /* Step 5: Receive server's listening port */
+    msg_port_negotiation_t server_port_msg;
+    size_t received;
+    err = connection_recv_raw(&discovery_conn, &server_port_msg, sizeof(server_port_msg), &received);
+    if (err != SUCCESS || received != sizeof(server_port_msg)) {
+        printf("❌ Failed to receive server port\n");
+        connection_close(&discovery_conn);
+        return 1;
+    }
+    
+    int server_port = ntohl(server_port_msg.my_port);
+    printf("   Server listening on port: %d\n", server_port);
+    
+    /* Close discovery connection */
+    connection_close(&discovery_conn);
+    
+    /* Step 6: Create client listening socket */
+    connection_t client_listen;
+    if (connection_init(&client_listen) != SUCCESS ||
+        connection_create_discovery_server(&client_listen, client_port) != SUCCESS) {
+        printf("❌ Failed to create client listening socket\n");
+        return 1;
+    }
+    
+    /* Step 7: Connect to server's listening port (write socket) */
+    session_init(&g_session);
+    connection_init(&g_session.conn);
+    
+    g_session.conn.write_sockfd = socket(AF_INET, SOCK_STREAM, 0);
+    if (g_session.conn.write_sockfd < 0) {
+        printf("❌ Failed to create socket\n");
+        connection_close(&client_listen);
+        return 1;
+    }
+    
+    memset(&server_addr, 0, sizeof(server_addr));
+    server_addr.sin_family = AF_INET;
+    server_addr.sin_port = htons(server_port);
+    inet_pton(AF_INET, discovery.server_ip, &server_addr.sin_addr);
+    
+    if (connect(g_session.conn.write_sockfd, (struct sockaddr*)&server_addr, sizeof(server_addr)) < 0) {
+        printf("❌ Failed to connect to server port %d\n", server_port);
+        close(g_session.conn.write_sockfd);
+        connection_close(&client_listen);
+        return 1;
+    }
+    
+    printf("   Connected to server's port\n");
+    
+    /* Step 8: Accept server's connection to our listening port (read socket) */
+    connection_t temp_conn;
+    err = connection_accept_discovery(&client_listen, &temp_conn);
+    if (err != SUCCESS) {
+        printf("❌ Failed to accept connection from server\n");
+        close(g_session.conn.write_sockfd);
+        connection_close(&client_listen);
+        return 1;
+    }
+    
+    g_session.conn.read_sockfd = temp_conn.read_sockfd;
+    g_session.conn.connected = true;
+    g_session.conn.sequence = 0;
+    
+    /* Close client listening socket (no longer needed) */
+    connection_close(&client_listen);
+    
+    printf("✓ Bidirectional connection established\n");
     
     /* Send MSG_CONNECT */
     msg_connect_t connect_msg;

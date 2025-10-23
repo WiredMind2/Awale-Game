@@ -6,6 +6,11 @@
 
 /* Message payload structures */
 
+/* MSG_PORT_NEGOTIATION - bidirectional port exchange */
+typedef struct {
+    int32_t my_port;     /* Port that sender is listening on */
+} msg_port_negotiation_t;
+
 /* MSG_CONNECT */
 typedef struct {
     char pseudo[MAX_PSEUDO_LEN];
