@@ -1,14 +1,15 @@
 # Awale Game - AI Agent Instructions
 
 ## Project Overview
-A client-server implementation of Awale (Oware/Mancala) using C with TCP sockets, pthreads, and select() multiplexing. The codebase is in **active migration** from a monolithic fork-based design to a modular architecture with clean separation of concerns.
+A client-server implementation of Awale (Oware/Mancala) using C with TCP/UDP sockets, pthreads, and select() multiplexing. The project uses a **fully modular architecture** with automatic UDP broadcast server discovery and peer-to-peer port negotiation for bidirectional connections.
 
 ## Critical Architecture Points
 
 ### Fully Modular Architecture
-- **Legacy files removed**: Old monolithic `awale_server.c` and `awale_client.c` have been deleted
+- **Legacy files removed**: All old monolithic files (`awale_server.c`, `awale_client.c`, old Makefiles, redundant docs) deleted
 - **New architecture only**: Modular design in `src/` and `include/` directories with 30+ files
 - All new code goes in modular structure under `src/`/`include/`
+- **Clean project root**: Only essential documentation (README.md, RULES.md, ARCHITECTURE.md, USER_MANUAL.md, objectives.txt)
 
 ### Module Structure (New Architecture)
 ```
@@ -22,6 +23,30 @@ src/client/     → Client UI and command handlers
 **Golden Rule**: Game logic (`src/game/`) NEVER imports network code. Network layer (`src/network/`) NEVER imports game logic. They communicate only via `src/common/` types.
 
 ### Network Communication Evolution
+
+#### UDP Broadcast Discovery
+Automatic server discovery eliminates manual IP configuration:
+- Client broadcasts "AWALE_DISCOVERY" on UDP port 12346 (255.255.255.255)
+- Server responds "AWALE_SERVER:<port>" with IP and TCP discovery port
+- Client extracts server IP and connects automatically
+- See `UDP_BROADCAST_DISCOVERY.md` for complete flow diagrams
+
+**Key Functions:**
+```c
+// Client: Find server on local network (5 second timeout)
+error_code_t connection_broadcast_discovery(discovery_response_t* response);
+
+// Server: Listen for discovery requests (infinite loop, run in thread)
+void connection_listen_for_discovery(uint16_t discovery_port);
+```
+
+#### Peer-to-Peer Port Negotiation
+Symmetric design where each side allocates its own listening port:
+- Client finds free port using `connection_find_free_port()`
+- Server finds free port using `connection_find_free_port()`
+- Exchange ports via `MSG_PORT_NEGOTIATION` (payload: `{int32_t my_port}`)
+- Both create listening socket on own port AND connect to peer's port
+- Result: Full-duplex bidirectional connection
 
 #### Bidirectional Communication System
 The codebase uses **dual-socket connections** with `select()` multiplexing:
@@ -80,18 +105,23 @@ The **feeding rule** is the most complex:
 2. Player has no seeds on their side and opponent can't feed them
 3. Endless loop (rare, remaining seeds split by side)
 
-## Build System Commands
+### Build System Commands
 
-### Primary Build (New Architecture)
+### Primary Build
 ```bash
 make              # Builds server + client in build/
 make server       # Build server only → build/awale_server
 make client       # Build client only → build/awale_client
 make clean        # Remove all build artifacts
-make run-server   # Build and run server on discovery port 12345
-make run-client PSEUDO=Alice  # Build and run client connecting to localhost:12345
-make test         # Run all automated tests (preferred over manual testing)
+make run-server   # Build and run server (discovery port 12345, broadcast port 12346)
+make run-client PSEUDO=Alice  # Build and run client (auto-discovers server via UDP broadcast)
+make test         # Run all automated tests (33 tests, preferred over manual testing)
 ```
+
+**Important Network Ports:**
+- **UDP 12346**: Broadcast discovery port (fixed, hardcoded)
+- **TCP 12345**: Discovery/connection port (default, configurable via command-line)
+- **TCP Ephemeral**: Dynamic bidirectional ports negotiated per connection
 
 
 
@@ -103,8 +133,13 @@ This project is developed in WSL (Windows Subsystem for Linux):
 
 ### AI Agent Limitations
 - **Cannot manage multiple terminal sessions**: Use automated tests (`make test`) instead of manual multi-terminal testing
+- **NEVER run server/client in shell for debugging**: Running the applications in terminal to see logs is extremely inefficient and unreliable
+  - Instead: Ask the user to run the application and provide the log output
+  - Pattern: "Please run `./build/awale_server` and paste the output here" or "Please run `./build/awale_client William` and share what you see"
+  - This is MUCH faster than trying to coordinate background processes, capture output, or manage multiple terminals
 - **Avoid interactive prompts**: Tests should be non-interactive and return exit codes
 - **Prefer build system**: Use `make` targets rather than raw `gcc` commands
+- **For connection/network debugging**: Always ask user to provide both server AND client logs together to see the full picture
 
 ## Code Conventions
 
@@ -162,18 +197,20 @@ If manual testing is absolutely necessary:
 # Terminal 1: Start server (discovery_port optional, default 12345)
 ./build/awale_server
 
-# Terminal 2: Start client A (host pseudo [discovery_port])
-./build/awale_client localhost Alice
+# Terminal 2: Start client A (auto-discovers server via UDP broadcast)
+./build/awale_client Alice
 
 # Terminal 3: Start client B
-./build/awale_client localhost Bob
+./build/awale_client Bob
 ```
 
 **Port Negotiation Process:**
-1. Client connects to discovery port (single socket)
-2. Server allocates two free ports dynamically
-3. Server sends ports to client via MSG_PORT_NEGOTIATION
-4. Both switch to bidirectional sockets on negotiated ports
+1. Client broadcasts discovery request on UDP port 12346
+2. Server responds with IP and discovery port
+3. Client connects to TCP discovery port
+4. Each side allocates own listening port via `connection_find_free_port()`
+5. Exchange ports via MSG_PORT_NEGOTIATION
+6. Both create listening socket on own port AND connect to peer's port
 
 ### Common Issues
 1. **"list players doesn't work"** → Check message size calculation (see Message Protocol section)
@@ -188,15 +225,19 @@ If manual testing is absolutely necessary:
 4. `include/common/messages.h` - All message payload structures
 5. `src/game/rules.c` - Core game logic with feeding rule enforcement
 6. `BIDIRECTIONAL_USAGE.md` - New dual-socket communication system
+7. `UDP_BROADCAST_DISCOVERY.md` - Automatic server discovery system
 
 
 
 ## Future Work (In Progress)
+- Chat system (send messages during/outside games)
+- Player bio (10 ASCII lines per player)
+- Private mode / friends list for spectators
 - Persistent storage (saving game state to disk)
+- Save and replay games functionality
+- ELO rating system
 - Reconnection support (client crash recovery)
-- Full bidirectional communication migration
-- Comprehensive unit test suite in `tests/`
-- Tournament mode with ELO ratings
+- Tournament mode with rankings
 
 ---
 

@@ -411,6 +411,10 @@ int main(int argc, char** argv) {
         return 1;
     }
     
+    /* Mark connection as connected and set write socket */
+    discovery_conn.write_sockfd = discovery_conn.read_sockfd;  /* Same socket for both directions */
+    discovery_conn.connected = true;
+    
     printf("✓ Connected to server\n");
     
     /* Step 3: Find a free port for client to listen on */

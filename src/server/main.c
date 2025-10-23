@@ -2,6 +2,8 @@
  * Multi-threaded TCP server with complete protocol handling
  */
 
+#define _POSIX_C_SOURCE 199309L  /* Enable nanosleep */
+
 #include "../../include/common/types.h"
 #include "../../include/common/protocol.h"
 #include "../../include/common/messages.h"
@@ -17,6 +19,7 @@
 #include <string.h>
 #include <signal.h>
 #include <arpa/inet.h>
+#include <time.h>
 
 /* Global managers */
 static game_manager_t g_game_manager;
@@ -411,7 +414,7 @@ int main(int argc, char** argv) {
         connection_t client_conn;
         connection_init(&client_conn);
         
-        /* Connect to client (write socket) */
+        /* Connect to client (write socket) with retry logic */
         client_conn.write_sockfd = socket(AF_INET, SOCK_STREAM, 0);
         if (client_conn.write_sockfd < 0) {
             fprintf(stderr, "Failed to create socket\n");
@@ -425,8 +428,41 @@ int main(int argc, char** argv) {
         client_addr.sin_port = htons(client_port);
         inet_pton(AF_INET, client_ip, &client_addr.sin_addr);
         
-        if (connect(client_conn.write_sockfd, (struct sockaddr*)&client_addr, sizeof(client_addr)) < 0) {
-            fprintf(stderr, "Failed to connect to client port %d\n", client_port);
+        /* Retry connection to client (client may need time to set up listening socket) */
+        int connect_attempts = 0;
+        const int max_attempts = 10;
+        const int retry_delay_ms = 100;  /* 100ms between attempts */
+        bool connected = false;
+        
+        while (connect_attempts < max_attempts && !connected) {
+            if (connect(client_conn.write_sockfd, (struct sockaddr*)&client_addr, sizeof(client_addr)) == 0) {
+                connected = true;
+                break;
+            }
+            
+            connect_attempts++;
+            if (connect_attempts < max_attempts) {
+                /* Sleep for retry_delay_ms milliseconds */
+                struct timespec ts;
+                ts.tv_sec = retry_delay_ms / 1000;
+                ts.tv_nsec = (retry_delay_ms % 1000) * 1000000;
+                nanosleep(&ts, NULL);
+                
+                /* Need to create a new socket for retry (can't reuse after failed connect) */
+                close(client_conn.write_sockfd);
+                client_conn.write_sockfd = socket(AF_INET, SOCK_STREAM, 0);
+                if (client_conn.write_sockfd < 0) {
+                    fprintf(stderr, "Failed to create socket for retry\n");
+                    connection_close(&server_listen);
+                    connected = false;
+                    break;
+                }
+            }
+        }
+        
+        if (!connected) {
+            fprintf(stderr, "Failed to connect to client port %d after %d attempts\n", 
+                    client_port, max_attempts);
             close(client_conn.write_sockfd);
             connection_close(&server_listen);
             continue;
