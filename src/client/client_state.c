@@ -8,6 +8,8 @@
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
+#include <unistd.h>
+#include <sys/select.h>
 
 /* Global state */
 static session_t* g_session_ptr = NULL;
@@ -28,6 +30,7 @@ static struct {
     pthread_mutex_t lock;
     bool turn_notification;
     pthread_cond_t turn_cond;
+    int notification_pipe[2];  /* Pipe for select() integration */
 } g_active_games;
 
 /* Spectator state data structure */
@@ -131,6 +134,14 @@ void active_games_init(void) {
     pthread_cond_init(&g_active_games.turn_cond, NULL);
     g_active_games.count = 0;
     g_active_games.turn_notification = false;
+    
+    /* Create notification pipe for select() integration */
+    if (pipe(g_active_games.notification_pipe) != 0) {
+        perror("Failed to create notification pipe");
+        g_active_games.notification_pipe[0] = -1;
+        g_active_games.notification_pipe[1] = -1;
+    }
+    
     for (int i = 0; i < MAX_ACTIVE_GAMES; i++) {
         g_active_games.games[i].active = false;
     }
@@ -206,7 +217,55 @@ void active_games_notify_turn(void) {
     pthread_mutex_lock(&g_active_games.lock);
     g_active_games.turn_notification = true;
     pthread_cond_broadcast(&g_active_games.turn_cond);
+    
+    /* Write to pipe to wake up select() */
+    if (g_active_games.notification_pipe[1] != -1) {
+        char byte = 1;
+        (void)write(g_active_games.notification_pipe[1], &byte, 1);
+    }
+    
     pthread_mutex_unlock(&g_active_games.lock);
+}
+
+int active_games_get_notification_fd(void) {
+    return g_active_games.notification_pipe[0];
+}
+
+/* Clear all pending notifications (both flag and pipe data) */
+void active_games_clear_notifications(void) {
+    pthread_mutex_lock(&g_active_games.lock);
+    
+    /* Clear the boolean flag */
+    g_active_games.turn_notification = false;
+    
+    pthread_mutex_unlock(&g_active_games.lock);
+    
+    /* Drain the pipe completely using non-blocking select() */
+    if (g_active_games.notification_pipe[0] != -1) {
+        char buffer[256];
+        fd_set readfds;
+        struct timeval tv;
+        
+        /* Keep draining until pipe is empty */
+        while (1) {
+            FD_ZERO(&readfds);
+            FD_SET(g_active_games.notification_pipe[0], &readfds);
+            tv.tv_sec = 0;
+            tv.tv_usec = 0;  /* Non-blocking */
+            
+            int ready = select(g_active_games.notification_pipe[0] + 1, &readfds, NULL, NULL, &tv);
+            if (ready <= 0) {
+                /* Pipe is empty or error */
+                break;
+            }
+            
+            /* Pipe has data, read it */
+            ssize_t bytes_read = read(g_active_games.notification_pipe[0], buffer, sizeof(buffer));
+            if (bytes_read <= 0) {
+                break;
+            }
+        }
+    }
 }
 
 bool active_games_wait_for_turn(int timeout_sec) {

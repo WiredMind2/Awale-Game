@@ -50,6 +50,8 @@ int active_games_count(void);
 active_game_t* active_games_get(int index);
 void active_games_notify_turn(void);
 bool active_games_wait_for_turn(int timeout_sec);
+int active_games_get_notification_fd(void);  /* Get fd for select() */
+void active_games_clear_notifications(void);  /* Clear all pending notifications */
 
 /* Spectator state tracking */
 void spectator_state_init(void);
