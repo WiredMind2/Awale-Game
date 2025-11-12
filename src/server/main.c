@@ -21,6 +21,7 @@
 #include <string.h>
 #include <signal.h>
 #include <arpa/inet.h>
+#include <errno.h>
 #include <time.h>
 
 /* Global managers */
@@ -99,7 +100,7 @@ int main(int argc, char** argv) {
     /* Create discovery server (single socket) */
     connection_t discovery_server;
     if (connection_init(&discovery_server) != SUCCESS ||
-        connection_create_discovery_server(&discovery_server, g_discovery_port) != SUCCESS) {
+        connection_create_server(&discovery_server, g_discovery_port) != SUCCESS) {
         fprintf(stderr, "Failed to create discovery server\n");
         return 1;
     }
@@ -109,146 +110,19 @@ int main(int argc, char** argv) {
     
     /* Accept loop */
     while (g_running) {
-        /* Accept initial connection on discovery port */
-        connection_t discovery_conn;
-        connection_init(&discovery_conn);
-        
-        error_code_t err = connection_accept_discovery(&discovery_server, &discovery_conn);
-        if (err != SUCCESS) {
-            if (g_running) {
-                fprintf(stderr, "Failed to accept discovery connection\n");
-            }
-            continue;
-        }
-        
-        printf("📡 Discovery connection accepted from %s\n", connection_get_peer_ip(&discovery_conn));
-        
-        /* Step 1: Receive client's listening port */
-        msg_port_negotiation_t client_port_msg;
-        size_t bytes_received;
-        err = connection_recv_raw(&discovery_conn, &client_port_msg, sizeof(client_port_msg), &bytes_received);
-        if (err != SUCCESS || bytes_received != sizeof(client_port_msg)) {
-            fprintf(stderr, "Failed to receive client port\n");
-            connection_close(&discovery_conn);
-            continue;
-        }
-        
-        int client_port = ntohl(client_port_msg.my_port);
-        printf("   Client listening on port: %d\n", client_port);
-        
-        /* Step 2: Find a free port for server to listen on */
-        int server_port;
-        err = connection_find_free_port(&server_port);
-        if (err != SUCCESS) {
-            fprintf(stderr, "Failed to find free port\n");
-            connection_close(&discovery_conn);
-            continue;
-        }
-        
-        printf("   Server will listen on port: %d\n", server_port);
-        
-        /* Step 3: Send server's listening port to client */
-        msg_port_negotiation_t server_port_msg;
-        server_port_msg.my_port = htonl(server_port);
-        
-        /* Get client IP before closing discovery connection */
-        char client_ip[64];
-        strncpy(client_ip, connection_get_peer_ip(&discovery_conn), sizeof(client_ip) - 1);
-        
-        err = connection_send_raw(&discovery_conn, &server_port_msg, sizeof(server_port_msg));
-        if (err != SUCCESS) {
-            fprintf(stderr, "Failed to send server port\n");
-            connection_close(&discovery_conn);
-            continue;
-        }
-        
-        /* Close discovery connection */
-        connection_close(&discovery_conn);
-        
-        /* Step 4: Create server listening socket */
-        connection_t server_listen;
-        if (connection_init(&server_listen) != SUCCESS ||
-            connection_create_discovery_server(&server_listen, server_port) != SUCCESS) {
-            fprintf(stderr, "Failed to create server listening socket\n");
-            continue;
-        }
-        
-        /* Step 5: Connect to client's listening port */
+        /* Accept client connection on discovery port */
         connection_t client_conn;
         connection_init(&client_conn);
         
-        /* Connect to client (write socket) with retry logic */
-        client_conn.write_sockfd = socket(AF_INET, SOCK_STREAM, 0);
-        if (client_conn.write_sockfd < 0) {
-            fprintf(stderr, "Failed to create socket\n");
-            connection_close(&server_listen);
-            continue;
-        }
-        
-        struct sockaddr_in client_addr;
-        memset(&client_addr, 0, sizeof(client_addr));
-        client_addr.sin_family = AF_INET;
-        client_addr.sin_port = htons(client_port);
-        inet_pton(AF_INET, client_ip, &client_addr.sin_addr);
-        
-        /* Retry connection to client (client may need time to set up listening socket) */
-        int connect_attempts = 0;
-        const int max_attempts = 10;
-        const int retry_delay_ms = 100;  /* 100ms between attempts */
-        bool connected = false;
-        
-        while (connect_attempts < max_attempts && !connected) {
-            if (connect(client_conn.write_sockfd, (struct sockaddr*)&client_addr, sizeof(client_addr)) == 0) {
-                connected = true;
-                break;
-            }
-            
-            connect_attempts++;
-            if (connect_attempts < max_attempts) {
-                /* Sleep for retry_delay_ms milliseconds */
-                struct timespec ts;
-                ts.tv_sec = retry_delay_ms / 1000;
-                ts.tv_nsec = (retry_delay_ms % 1000) * 1000000;
-                nanosleep(&ts, NULL);
-                
-                /* Need to create a new socket for retry (can't reuse after failed connect) */
-                close(client_conn.write_sockfd);
-                client_conn.write_sockfd = socket(AF_INET, SOCK_STREAM, 0);
-                if (client_conn.write_sockfd < 0) {
-                    fprintf(stderr, "Failed to create socket for retry\n");
-                    connection_close(&server_listen);
-                    connected = false;
-                    break;
-                }
-            }
-        }
-        
-        if (!connected) {
-            fprintf(stderr, "Failed to connect to client port %d after %d attempts\n", 
-                    client_port, max_attempts);
-            close(client_conn.write_sockfd);
-            connection_close(&server_listen);
-            continue;
-        }
-        
-        /* Step 6: Accept client's connection to our listening port (read socket) */
-        connection_t temp_conn;
-        err = connection_accept_discovery(&server_listen, &temp_conn);
+        error_code_t err = connection_accept(&discovery_server, &client_conn);
         if (err != SUCCESS) {
-            fprintf(stderr, "Failed to accept from client\n");
-            close(client_conn.write_sockfd);
-            connection_close(&server_listen);
+            if (g_running) {
+                fprintf(stderr, "Failed to accept client connection\n");
+            }
             continue;
         }
         
-        client_conn.read_sockfd = temp_conn.read_sockfd;
-        client_conn.connected = true;
-        client_conn.sequence = 0;
-        
-        /* Close server listening socket (no longer needed) */
-        connection_close(&server_listen);
-        
-        printf("✓ Bidirectional connection established with %s\n", client_ip);
+        printf("📡 Client connection accepted from %s\n", connection_get_peer_ip(&client_conn));
         
         /* Receive initial MSG_CONNECT */
         message_header_t header;
@@ -275,10 +149,10 @@ int main(int argc, char** argv) {
         
         connect_msg.pseudo[MAX_PSEUDO_LEN - 1] = '\0';
         
-        printf("📥 Connection from %s (%s)\n", connect_msg.pseudo, client_ip);
+        printf("📥 Connection from %s (%s)\n", connect_msg.pseudo, connection_get_peer_ip(&client_conn));
         
         /* Add to matchmaking */
-        if (matchmaking_add_player(&g_matchmaking, connect_msg.pseudo, client_ip) != SUCCESS) {
+        if (matchmaking_add_player(&g_matchmaking, connect_msg.pseudo, connection_get_peer_ip(&client_conn)) != SUCCESS) {
             connection_close(&client_conn);
             continue;
         }

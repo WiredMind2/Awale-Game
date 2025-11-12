@@ -135,8 +135,7 @@ TEST(connection_init) {
     error_code_t err = connection_init(&conn);
     
     assert(err == SUCCESS);
-    assert(conn.read_sockfd == -1);
-    assert(conn.write_sockfd == -1);
+    assert(conn.socket_fd == -1);
     assert(conn.connected == false);
     assert(conn.sequence == 0);
 }
@@ -148,8 +147,7 @@ TEST(connection_is_connected) {
     assert(connection_is_connected(&conn) == false);
     
     /* Simulate connection */
-    conn.read_sockfd = 3;
-    conn.write_sockfd = 4;
+    conn.socket_fd = 3;
     conn.connected = true;
     
     assert(connection_is_connected(&conn) == true);

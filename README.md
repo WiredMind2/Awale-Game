@@ -1,107 +1,156 @@
-# Awale Game (Client / Server)
+# Awale Game - Modular Client/Server Implementation
 
-Simple TCP client/server implementation of the Awale (Mancala) game used for a systems / networks practical.
+A modern, cross-platform implementation of Awale (Oware/Mancala) using C with a clean modular architecture and single-socket TCP communication.
 
-This repository contains two small C programs:
+## 🎯 Features
 
-- `awale_server.c` — a TCP server that tracks connected players, challenges and game boards using POSIX APIs (fork, mmap, sockets).
-- `awale_client.c` — a TCP client that connects to the server and provides a small text UI to list players, challenge, play moves, and display the board.
+- **Modular Architecture**: Clean separation between game logic, networking, and UI
+- **Single-Socket Communication**: Simplified TCP connections (no port negotiation)
+- **Automatic Server Discovery**: UDP broadcast for easy local network setup
+- **Cross-Platform**: Works on Linux, macOS, and Windows (WSL)
+- **Thread-Safe**: Concurrent game support with proper synchronization
+- **Comprehensive Testing**: Automated unit tests for game logic and networking
 
-## Design / contract
+## 🏗️ Architecture
 
-- Server listens on a TCP port and accepts multiple clients (each handled with `fork`).
-- Communication is done with simple command enums and raw structs (`read` / `write`).
-- Board state and client lists are stored in shared memory (anonymous `mmap`).
+### Core Modules
+- **Common**: Shared types, protocol definitions, and message structures
+- **Game**: Pure game logic (board operations, rules, player management)
+- **Network**: Single-socket TCP connections and message serialization
+- **Server**: Game management, matchmaking, and client handling
+- **Client**: Text-based UI and command processing
 
-Data shapes (high-level):
-- Commands: CMD_LISTER_JOUEURS, CMD_DEFIER, CMD_JOUER, CMD_GET_BOARD, CMD_QUITTER
-- `struct move` — playerA, playerB, pit_index
-- `struct board_state` — pits[12], score[2], current_player, pseudoA, pseudoB, game_exists
+### Network Design
+- **Single TCP Socket**: Bidirectional communication on one connection
+- **UDP Discovery**: Automatic server detection on local networks
+- **Message Protocol**: Typed messages with fixed headers and variable payloads
+- **No Port Negotiation**: Direct connection to server discovery port
 
-## Prerequisites
+## 🚀 Quick Start
 
-- A POSIX-like environment (Linux, macOS). The code uses `fork`, `mmap`, and POSIX sockets.
-- A C compiler (gcc/clang).
+### Prerequisites
+- C11 compiler (gcc/clang)
+- POSIX environment (Linux, macOS, WSL)
+- Make build system
 
-Notes for Windows users
-- The source uses POSIX-only APIs. On native Windows (cmd / PowerShell) it will not compile/run without porting.
-- Recommended: use WSL (Windows Subsystem for Linux) or an MSYS2/Cygwin environment that provides POSIX compatibility.
+### Build
+```bash
+make all          # Build both client and server
+make server       # Build server only
+make client       # Build client only
+make test         # Run automated tests
+make clean        # Clean build artifacts
+```
 
-## Build
+### Run
 
-Open a terminal in the repository root (bash / WSL / macOS / Linux). Then:
+**Terminal 1: Start Server**
+```bash
+make run-server          # Auto-discovers on port 12345
+# OR
+./build/awale_server    # Uses default port 12345
+```
+
+**Terminal 2: Start Client A**
+```bash
+make run-client PSEUDO=Alice    # Auto-discovers server via UDP
+# OR
+./build/awale_client Alice      # Auto-discovers server
+# OR
+./build/awale_client -s 192.168.1.100 Alice  # Direct IP connection
+```
+
+**Terminal 3: Start Client B**
+```bash
+./build/awale_client Bob
+```
+
+### Gameplay
+- Use the text menu to list players, send challenges, and play moves
+- Games are automatically managed by the server
+- Multiple games can run concurrently
+
+## 📋 Client Commands
+
+1. **List Players** - See all connected players
+2. **Challenge Player** - Send a game challenge
+3. **View Challenges** - Check incoming challenges
+4. **Play Mode** - Enter active gameplay
+5. **Spectator Mode** - Watch ongoing games
+6. **Disconnect** - Exit the client
+
+## 🔧 Network Ports
+
+- **UDP 12346**: Broadcast discovery (client → server discovery)
+- **TCP 12345**: Server discovery port (default, configurable)
+- **Dynamic TCP**: Game connections (assigned by system)
+
+## 🧪 Testing
 
 ```bash
-gcc -o awale_server awale_server.c
-gcc -o awale_client awale_client.c
+make test         # Run all tests (33 total)
+make test-game    # Game logic tests only
+make test-network # Network layer tests only
 ```
 
-If you use WSL from PowerShell, open WSL and cd to the mounted path, for example:
+## 📁 Project Structure
 
-```powershell
-# Open WSL, then in WSL:
-cd "/mnt/c/Users/<you>/Documents/INSA/PR/TP1-20250930/Awale Game"
-gcc -o awale_server awale_server.c
-gcc -o awale_client awale_client.c
+```
+├── include/           # Header files
+│   ├── common/       # Shared definitions
+│   ├── game/         # Game logic interfaces
+│   ├── network/      # Network layer interfaces
+│   ├── server/       # Server component interfaces
+│   └── client/       # Client component interfaces
+├── src/              # Implementation files
+│   ├── common/       # Shared implementations
+│   ├── game/         # Game logic
+│   ├── network/      # Networking (single-socket)
+│   ├── server/       # Server components
+│   └── client/       # Client components
+├── tests/            # Unit tests
+├── build/            # Compiled binaries
+└── docs/             # Documentation
 ```
 
-Or start an Ubuntu/WSL shell and run the same `gcc` commands there.
+## 🎮 Game Rules
 
-## Run / usage
+Awale follows traditional Mancala rules with the feeding rule:
+- Players take turns sowing seeds from pits
+- Captures occur when last seed lands in opponent's pit with 2-3 seeds
+- **Feeding Rule**: Moves must leave opponent with playable seeds
+- First to 25+ seeds or with all remaining seeds wins
 
-1. Start the server (choose a port > 1024):
+## 🔄 Connection Process
 
-```bash
-./awale_server 12345
-```
+1. **UDP Discovery**: Client broadcasts "find server" request
+2. **Server Response**: Server replies with IP and TCP port
+3. **Direct Connect**: Client connects to server's TCP port
+4. **Authentication**: Client sends MSG_CONNECT, server responds with session
+5. **Gameplay**: Bidirectional communication over single TCP socket
 
-2. Start one or more clients in separate terminals:
+## 🐛 Troubleshooting
 
-```bash
-./awale_client 127.0.0.1 12345 Alice
-./awale_client 127.0.0.1 12345 Bob
-```
+- **Connection Issues**: Check firewall settings, ensure UDP/TCP ports are open
+- **Build Errors**: Ensure C11 compiler and POSIX headers are available
+- **Windows Users**: Use WSL for native POSIX support
+- **Port Conflicts**: Server will use default ports, change if needed
 
-Client usage (menu):
-- 1: List connected players
-- 2: Challenge another player (enter opponent pseudo)
-- 3: Play a move (enter playerA, playerB, then pit 0-11)
-- 4: Show board for a given pair
-- 5: Quit
+## 📚 Documentation
 
-Example
+- `ARCHITECTURE.md` - Detailed module descriptions and data flows
+- `RULES.md` - Complete Awale game rules
+- `UDP_BROADCAST_DISCOVERY.md` - Network discovery implementation
+- `USER_MANUAL.md` - User guide and examples
 
-- In terminal A: ./awale_server 12345
-- In terminal B: ./awale_client 127.0.0.1 12345 Alice
-- In terminal C: ./awale_client 127.0.0.1 12345 Bob
-- Alice selects option 2 and challenges `Bob`. If Bob also challenges Alice, the server starts a game automatically.
+## 🧪 Development
 
-## Limitations & notes
+The codebase emphasizes:
+- **Clean Interfaces**: Each module has well-defined responsibilities
+- **Test Coverage**: Automated tests for critical functionality
+- **Error Handling**: Comprehensive error codes and validation
+- **Thread Safety**: Proper synchronization for concurrent operations
 
-- This is a small educational implementation. It is not hardened for production use.
-- The server uses anonymous `mmap` and `fork` for inter-process sharing; the approach is Unix-centric.
-- The protocol is very simple and fragile: it sends raw struct bytes and expects exact sizes. Both client and server must be built with compatible architectures and compilers.
+## 📄 License
 
-## Troubleshooting
-
-- "bind" or "socket" errors: make sure the port is free and you have permission to bind (use >1024 if not root).
-- On Windows, prefer running inside WSL or MSYS2; native compilation will likely fail because of missing `fork` / `mmap`.
-
-## Files
-
-- `awale_server.c` — server source
-- `awale_client.c` — client source
-
-## License
-
-This repository does not include an explicit license. If you plan to reuse or redistribute the code, add a license file (e.g. `LICENSE`) or ask the original author for permission.
-
----
-
-If you want, I can also:
-
-- add a simple Makefile or PowerShell/WSL build script,
-- add a small test script to run a server and two clients automatically in WSL terminals,
-- or update the code to be more portable to Windows (remove fork/mmap and use threads + named pipes / TCP-only shared state).
-
-Tell me which you'd like next.
+This educational implementation is provided as-is for learning purposes. See individual files for any licensing information.

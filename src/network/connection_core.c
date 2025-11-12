@@ -10,8 +10,7 @@
 error_code_t connection_init(connection_t* conn) {
     if (!conn) return ERR_INVALID_PARAM;
     
-    conn->read_sockfd = -1;
-    conn->write_sockfd = -1;
+    conn->socket_fd = -1;
     memset(&conn->addr, 0, sizeof(conn->addr));
     conn->connected = false;
     conn->sequence = 0;
@@ -22,24 +21,18 @@ error_code_t connection_init(connection_t* conn) {
 error_code_t connection_close(connection_t* conn) {
     if (!conn) return ERR_INVALID_PARAM;
     
-    /* Close read socket */
-    if (conn->read_sockfd >= 0) {
-        close(conn->read_sockfd);
-        conn->read_sockfd = -1;
+    /* Close socket */
+    if (conn->socket_fd >= 0) {
+        close(conn->socket_fd);
+        conn->socket_fd = -1;
     }
-    
-    /* Close write socket only if it's different from read socket */
-    if (conn->write_sockfd >= 0 && conn->write_sockfd != conn->read_sockfd) {
-        close(conn->write_sockfd);
-    }
-    conn->write_sockfd = -1;
     
     conn->connected = false;
     return SUCCESS;
 }
 
 bool connection_is_connected(const connection_t* conn) {
-    return conn && conn->connected && conn->read_sockfd >= 0 && conn->write_sockfd >= 0;
+    return conn && conn->connected && conn->socket_fd >= 0;
 }
 
 const char* connection_get_peer_ip(const connection_t* conn) {

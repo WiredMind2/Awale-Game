@@ -7,20 +7,19 @@
 #include <netinet/in.h>
 #include <sys/select.h>
 
-/* Bidirectional connection structure with dual sockets */
+/* Connection structure with single socket for bidirectional communication */
 typedef struct {
-    int read_sockfd;    /* Socket for reading data */
-    int write_sockfd;   /* Socket for writing data */
+    int socket_fd;    /* Single socket for both reading and writing */
     struct sockaddr_in addr;
     bool connected;
     uint32_t sequence;  /* Message sequence counter */
 } connection_t;
 
-/* Connection management - All functions now use bidirectional sockets */
+/* Connection management - Single socket for bidirectional communication */
 error_code_t connection_init(connection_t* conn);
-error_code_t connection_create_server(connection_t* conn, int read_port, int write_port);
-error_code_t connection_connect(connection_t* conn, const char* host, int read_port, int write_port);
-error_code_t connection_accept(connection_t* server_read, connection_t* server_write, connection_t* client);
+error_code_t connection_create_server(connection_t* conn, int port);
+error_code_t connection_connect(connection_t* conn, const char* host, int port);
+error_code_t connection_accept(connection_t* server, connection_t* client);
 error_code_t connection_close(connection_t* conn);
 
 /* Send/receive raw data */
@@ -34,11 +33,6 @@ error_code_t connection_recv_timeout(connection_t* conn, void* buffer, size_t si
 /* Connection state */
 bool connection_is_connected(const connection_t* conn);
 const char* connection_get_peer_ip(const connection_t* conn);
-
-/* Port discovery for bidirectional negotiation */
-error_code_t connection_find_free_port(int* port);
-error_code_t connection_create_discovery_server(connection_t* conn, int port);
-error_code_t connection_accept_discovery(connection_t* server, connection_t* client);
 
 /* UDP broadcast discovery */
 typedef struct {

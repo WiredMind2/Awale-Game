@@ -49,13 +49,13 @@ error_code_t connection_find_free_port(int* port) {
 error_code_t connection_create_discovery_server(connection_t* conn, int port) {
     if (!conn) return ERR_INVALID_PARAM;
     
-    conn->read_sockfd = socket(AF_INET, SOCK_STREAM, 0);
-    if (conn->read_sockfd < 0) {
+    conn->socket_fd = socket(AF_INET, SOCK_STREAM, 0);
+    if (conn->socket_fd < 0) {
         return ERR_NETWORK_ERROR;
     }
     
     int opt = 1;
-    setsockopt(conn->read_sockfd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
+    setsockopt(conn->socket_fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
     
     struct sockaddr_in addr;
     memset(&addr, 0, sizeof(addr));
@@ -63,39 +63,37 @@ error_code_t connection_create_discovery_server(connection_t* conn, int port) {
     addr.sin_addr.s_addr = htonl(INADDR_ANY);
     addr.sin_port = htons(port);
     
-    if (bind(conn->read_sockfd, (struct sockaddr*)&addr, sizeof(addr)) < 0) {
-        close(conn->read_sockfd);
-        conn->read_sockfd = -1;
+    if (bind(conn->socket_fd, (struct sockaddr*)&addr, sizeof(addr)) < 0) {
+        close(conn->socket_fd);
+        conn->socket_fd = -1;
         return ERR_NETWORK_ERROR;
     }
     
-    if (listen(conn->read_sockfd, 5) < 0) {
-        close(conn->read_sockfd);
-        conn->read_sockfd = -1;
+    if (listen(conn->socket_fd, 5) < 0) {
+        close(conn->socket_fd);
+        conn->socket_fd = -1;
         return ERR_NETWORK_ERROR;
     }
     
-    conn->write_sockfd = -1;  /* Not used in discovery phase */
+    conn->addr = addr;
     conn->connected = true;
-    
     return SUCCESS;
 }
 
 /* Accept connection on discovery server (single socket) */
 error_code_t connection_accept_discovery(connection_t* server, connection_t* client) {
     if (!server || !client) return ERR_INVALID_PARAM;
-    if (server->read_sockfd < 0) return ERR_NETWORK_ERROR;
+    if (server->socket_fd < 0) return ERR_NETWORK_ERROR;
     
     struct sockaddr_in client_addr;
     socklen_t addr_len = sizeof(client_addr);
     
-    int client_sockfd = accept(server->read_sockfd, (struct sockaddr*)&client_addr, &addr_len);
+    int client_sockfd = accept(server->socket_fd, (struct sockaddr*)&client_addr, &addr_len);
     if (client_sockfd < 0) {
         return ERR_NETWORK_ERROR;
     }
     
-    client->read_sockfd = client_sockfd;
-    client->write_sockfd = client_sockfd;  /* Same socket for both directions in discovery */
+    client->socket_fd = client_sockfd;
     client->addr = client_addr;
     client->connected = true;
     client->sequence = 0;
