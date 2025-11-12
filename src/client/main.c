@@ -56,7 +56,7 @@ int main(int argc, char** argv) {
         int choice;
         if (scanf("%d", &choice) != 1) {
             clear_input();
-            printf("❌ Invalid input\n");
+            printf("Invalid input\n");
             continue;
         }
         clear_input();
@@ -66,14 +66,14 @@ int main(int argc, char** argv) {
             case 2: cmd_challenge_player(); break;
             case 3: cmd_view_challenges(); break;
             case 4:
-                printf("\n👋 Disconnecting...\n");
+                printf("\nDisconnecting...\n");
                 session_send_message(&g_session, MSG_DISCONNECT, NULL, 0);
                 client_state_set_running(false);
                 break;
             case 5: cmd_play_mode(); break;
             case 6: cmd_spectator_mode(); break;
             default:
-                printf("❌ Invalid choice. Please select 1-6.\n");
+                printf("Invalid choice. Please select 1-6.\n");
                 break;
         }
     }
@@ -88,17 +88,17 @@ int main(int argc, char** argv) {
 
 /* Connection establishment (UDP discovery + bidirectional setup) */
 static error_code_t establish_connection(const char* pseudo, session_t* session) {
-    printf("🔍 Broadcasting discovery request on local network...\n");
+    printf("Broadcasting discovery request on local network...\n");
     
     /* Step 1: UDP broadcast to discover server */
     discovery_response_t discovery;
     error_code_t err = connection_broadcast_discovery(&discovery, 5);
     if (err != SUCCESS) {
-        printf("❌ No server found on local network\n");
+        printf("No server found on local network\n");
         return err;
     }
     
-    printf("✓ Server discovered at %s:%d\n", discovery.server_ip, discovery.discovery_port);
+    printf("Serveur découvert à %s:%d\n", discovery.server_ip, discovery.discovery_port);
     
     /* Step 2: Connect to discovery port */
     connection_t discovery_conn;
