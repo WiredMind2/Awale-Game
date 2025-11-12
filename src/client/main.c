@@ -50,13 +50,13 @@ int main(int argc, char** argv) {
         break;
     }
     if (!pseudo) {
-        printf("❌ Missing pseudo. Usage: %s <pseudo> [-s server_ip]\n", argv[0]);
+        printf("Il manque le pseudo. Usage: %s <pseudo> [-s server_ip]\n", argv[0]);
         return 1;
     }
     
     print_banner();
     client_state_set_pseudo(pseudo);
-    printf("Player: %s\n", client_state_get_pseudo());
+    printf("Joueur: %s\n", client_state_get_pseudo());
     
     /* Establish connection */
     session_t g_session;
@@ -69,7 +69,7 @@ int main(int argc, char** argv) {
     
     /* Start notification listener thread */
     pthread_t notif_thread = start_notification_listener();
-    printf("Notification listener started\n");
+    printf("En attente de notification\n");
     
     /* Main menu loop */
     client_state_set_running(true);
@@ -79,7 +79,7 @@ int main(int argc, char** argv) {
         int choice;
         if (scanf("%d", &choice) != 1) {
             clear_input();
-            printf("Invalid input\n");
+            printf("Entree invalide\n");
             continue;
         }
         clear_input();
