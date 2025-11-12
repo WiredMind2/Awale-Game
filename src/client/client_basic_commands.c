@@ -18,11 +18,11 @@
 void cmd_list_players(void) {
     session_t* session = client_state_get_session();
     
-    printf("\n📋 Listing connected players...\n");
+    printf("\nListe des joueurs connectes...\n");
     
     error_code_t err = session_send_message(session, MSG_LIST_PLAYERS, NULL, 0);
     if (err != SUCCESS) {
-        printf("❌ Error sending request: %s\n", error_to_string(err));
+        printf("Erreur a l'envoi de la requète: %s\n", error_to_string(err));
         return;
     }
     
@@ -32,11 +32,11 @@ void cmd_list_players(void) {
     
     err = session_recv_message(session, &type, &list, sizeof(list), &size);
     if (err != SUCCESS || type != MSG_PLAYER_LIST) {
-        printf("❌ Error receiving response\n");
+        printf("Erreur a la reception de la reponse\n");
         return;
     }
     
-    printf("\n✓ Connected players (%d):\n", list.count);
+    printf("\nJoueurs connectes (%d):\n", list.count);
     printf("─────────────────────────────\n");
     for (int i = 0; i < list.count; i++) {
         printf("  %d. %s (%s)\n", i + 1, list.players[i].pseudo, list.players[i].ip);
