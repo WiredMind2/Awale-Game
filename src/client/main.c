@@ -21,23 +21,46 @@
 #include <pthread.h>
 
 /* Connection setup helper */
-static error_code_t establish_connection(const char* pseudo, session_t* session);
+static error_code_t establish_connection(const char* pseudo, const char* server_ip, session_t* session);
 
 int main(int argc, char** argv) {
     if (argc < 2) {
-        printf("Usage: %s <pseudo>\n", argv[0]);
+        printf("Usage: %s <pseudo> [-s server_ip]\n", argv[0]);
         printf("  pseudo: Your player name\n");
-        printf("  Server will be discovered automatically via UDP broadcast.\n");
+        printf("  -s <server_ip> : Optional - directly connect to server IP instead of UDP discovery\n");
+        printf("  If no server IP is provided the client will use UDP broadcast discovery.\n");
+        return 1;
+    }
+
+    /* Parse optional args: allow -s server_ip before or after pseudo */
+    const char* server_ip = NULL;
+    for (int i = 1; i < argc; i++) {
+        if ((strcmp(argv[i], "-s") == 0 || strcmp(argv[i], "--server-ip") == 0) && i + 1 < argc) {
+            server_ip = argv[i + 1];
+            i++; /* skip next */
+            continue;
+        }
+    }
+
+    /* The first non-option argument is the pseudo */
+    const char* pseudo = NULL;
+    for (int i = 1; i < argc; i++) {
+        if (argv[i][0] == '-') continue;
+        pseudo = argv[i];
+        break;
+    }
+    if (!pseudo) {
+        printf("❌ Missing pseudo. Usage: %s <pseudo> [-s server_ip]\n", argv[0]);
         return 1;
     }
     
     print_banner();
-    client_state_set_pseudo(argv[1]);
+    client_state_set_pseudo(pseudo);
     printf("Player: %s\n", client_state_get_pseudo());
     
     /* Establish connection */
     session_t g_session;
-    if (establish_connection(argv[1], &g_session) != SUCCESS) {
+    if (establish_connection(pseudo, server_ip, &g_session) != SUCCESS) {
         return 1;
     }
     
@@ -87,18 +110,26 @@ int main(int argc, char** argv) {
 }
 
 /* Connection establishment (UDP discovery + bidirectional setup) */
-static error_code_t establish_connection(const char* pseudo, session_t* session) {
-    printf("🔍 Broadcasting discovery request on local network...\n");
-    
-    /* Step 1: UDP broadcast to discover server */
+static error_code_t establish_connection(const char* pseudo, const char* server_ip, session_t* session) {
     discovery_response_t discovery;
-    error_code_t err = connection_broadcast_discovery(&discovery, 5);
-    if (err != SUCCESS) {
-        printf("❌ No server found on local network\n");
-        return err;
+    error_code_t err = SUCCESS;
+
+    if (server_ip == NULL) {
+        printf("🔍 Broadcasting discovery request on local network...\n");
+        /* Step 1: UDP broadcast to discover server */
+        err = connection_broadcast_discovery(&discovery, 5);
+        if (err != SUCCESS) {
+            printf("❌ No server found on local network\n");
+            return err;
+        }
+        printf("✓ Server discovered at %s:%d\n", discovery.server_ip, discovery.discovery_port);
+    } else {
+        /* Use provided server IP and default discovery port */
+        printf("🔍 Using provided server IP: %s\n", server_ip);
+        memset(&discovery, 0, sizeof(discovery));
+        snprintf(discovery.server_ip, sizeof(discovery.server_ip), "%s", server_ip);
+        discovery.discovery_port = 12345; /* default discovery port */
     }
-    
-    printf("✓ Server discovered at %s:%d\n", discovery.server_ip, discovery.discovery_port);
     
     /* Step 2: Connect to discovery port */
     connection_t discovery_conn;
@@ -114,7 +145,7 @@ static error_code_t establish_connection(const char* pseudo, session_t* session)
     memset(&server_addr, 0, sizeof(server_addr));
     server_addr.sin_family = AF_INET;
     server_addr.sin_port = htons(discovery.discovery_port);
-    inet_pton(AF_INET, discovery.server_ip, &server_addr.sin_addr);
+    inet_pton(AF_INET, (server_ip != NULL) ? server_ip : discovery.server_ip, &server_addr.sin_addr);
     
     if (connect(discovery_conn.read_sockfd, (struct sockaddr*)&server_addr, sizeof(server_addr)) < 0) {
         printf("❌ Failed to connect to server\n");
@@ -184,7 +215,7 @@ static error_code_t establish_connection(const char* pseudo, session_t* session)
     memset(&server_addr, 0, sizeof(server_addr));
     server_addr.sin_family = AF_INET;
     server_addr.sin_port = htons(server_port);
-    inet_pton(AF_INET, discovery.server_ip, &server_addr.sin_addr);
+    inet_pton(AF_INET, (server_ip != NULL) ? server_ip : discovery.server_ip, &server_addr.sin_addr);
     
     if (connect(session->conn.write_sockfd, (struct sockaddr*)&server_addr, sizeof(server_addr)) < 0) {
         printf("❌ Failed to connect to server port %d\n", server_port);
