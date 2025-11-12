@@ -151,11 +151,10 @@ int main(int argc, char** argv) {
         
         msg_player_list_t list;
         int count;
-        error_code_t err = matchmaking_get_players(&g_matchmaking, list.players, 100, &count);
-        if (err == SUCCESS) {
+        error_code_t error_matchmaking = matchmaking_get_players(&g_matchmaking, list.players, 100, &count);
+        if (error_matchmaking == SUCCESS) {
             list.count = count;
-        /* Calculate actual size: count field + only the actual number of players */
-        size_t actual_size = sizeof(list.count) + (count * sizeof(player_info_t));
+        }
         for (int i = 0; i < count; i++) {
             if (strcmp(connect_msg.pseudo, list.players[i].pseudo) == 0) {
                 connection_close(&client_conn);
