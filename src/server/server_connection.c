@@ -61,17 +61,41 @@ void* client_handler(void* arg) {
         return NULL;
     }
     
+    time_t last_check = time(NULL);
+    const time_t CHECK_INTERVAL = 60;  /* Check connection health every 60 seconds */
+    
     /* Main message loop */
     while (*g_running && session_is_active(&session)) {
         message_type_t msg_type;
         char payload[MAX_PAYLOAD_SIZE];
         size_t payload_size;
         
-        error_code_t err = session_recv_message(&session, &msg_type, payload, 
-                                                MAX_PAYLOAD_SIZE, &payload_size);
+        /* Periodically check if connection is still alive */
+        time_t now = time(NULL);
+        if (now - last_check >= CHECK_INTERVAL) {
+            error_code_t check_err = connection_check_alive(&session.conn);
+            if (check_err != SUCCESS) {
+                printf("⚠️ Client %s connection check failed - disconnecting\n", session.pseudo);
+                break;
+            }
+            last_check = now;
+        }
+        
+        /* Use timeout to allow periodic connection checking */
+        error_code_t err = session_recv_message_timeout(&session, &msg_type, payload, 
+                                                        MAX_PAYLOAD_SIZE, &payload_size, 5000);
+        
+        if (err == ERR_TIMEOUT) {
+            /* Normal timeout - continue loop to check connection health */
+            continue;
+        }
         
         if (err != SUCCESS) {
-            printf("Client %s disconnected\n", session.pseudo);
+            if (err == ERR_NETWORK_ERROR) {
+                printf("🔌 Client %s disconnected (network error)\n", session.pseudo);
+            } else {
+                printf("⚠️ Client %s error: %s\n", session.pseudo, error_to_string(err));
+            }
             break;
         }
         
@@ -168,8 +192,20 @@ void* client_handler(void* arg) {
     
 cleanup:
     printf("🔌 Client %s disconnected\n", session.pseudo);
+    
+    /* Clean up all server-side resources for this client */
     session_registry_remove(&session);
     matchmaking_remove_player(g_matchmaking, session.pseudo);
+    
+    /* Remove player from any active games as spectator */
+    for (int i = 0; i < g_game_manager->game_count; i++) {
+        if (g_game_manager->games[i].active) {
+            game_manager_remove_spectator(g_game_manager, 
+                                         g_game_manager->games[i].game_id, 
+                                         session.pseudo);
+        }
+    }
+    
     session_close(&session);
     free(handler);
     

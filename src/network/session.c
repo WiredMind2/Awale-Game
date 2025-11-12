@@ -48,14 +48,27 @@ error_code_t session_close(session_t* session) {
 error_code_t session_send_message(session_t* session, message_type_t type, const void* payload, size_t payload_size) {
     if (!session) return ERR_INVALID_PARAM;
     
+    /* Check if connection is still alive before attempting send */
+    if (!connection_is_connected(&session->conn)) {
+        session->authenticated = false;
+        return ERR_NETWORK_ERROR;
+    }
+    
     char buffer[MAX_MESSAGE_SIZE];
     size_t total_size;
     
     error_code_t err = serialize_message(type, payload, payload_size, buffer, &total_size);
     if (err != SUCCESS) return err;
     
-    err = connection_send_raw(&session->conn, buffer, total_size);
-    if (err != SUCCESS) return err;
+    /* Use send with timeout to prevent freezing */
+    err = connection_send_timeout(&session->conn, buffer, total_size, 5000);
+    if (err != SUCCESS) {
+        /* Mark session as disconnected on error */
+        if (err == ERR_NETWORK_ERROR) {
+            session->authenticated = false;
+        }
+        return err;
+    }
     
     session_touch_activity(session);
     return SUCCESS;
@@ -64,17 +77,38 @@ error_code_t session_send_message(session_t* session, message_type_t type, const
 error_code_t session_recv_message(session_t* session, message_type_t* type, void* payload, size_t max_payload_size, size_t* actual_size) {
     if (!session || !type) return ERR_INVALID_PARAM;
     
+    /* Check if connection is still alive */
+    if (!connection_is_connected(&session->conn)) {
+        session->authenticated = false;
+        return ERR_NETWORK_ERROR;
+    }
+    
     // First, read the header
     message_header_t header;
     size_t received;
     
     error_code_t err = connection_recv_raw(&session->conn, &header, sizeof(header), &received);
-    if (err != SUCCESS || received != sizeof(header)) return ERR_NETWORK_ERROR;
+    if (err != SUCCESS) {
+        if (err == ERR_NETWORK_ERROR) {
+            session->authenticated = false;
+        }
+        return err;
+    }
+    if (received != sizeof(header)) {
+        session->authenticated = false;
+        return ERR_NETWORK_ERROR;
+    }
     
     // Convert from network byte order
     header.type = ntohl(header.type);
     header.length = ntohl(header.length);
     header.sequence = ntohl(header.sequence);
+    
+    /* Validate message header */
+    if (header.length > MAX_PAYLOAD_SIZE) {
+        session->authenticated = false;
+        return ERR_SERIALIZATION;
+    }
     
     *type = (message_type_t)header.type;
     
@@ -83,7 +117,16 @@ error_code_t session_recv_message(session_t* session, message_type_t* type, void
         if (!payload || header.length > max_payload_size) return ERR_SERIALIZATION;
         
         err = connection_recv_raw(&session->conn, payload, header.length, &received);
-        if (err != SUCCESS || received != header.length) return ERR_NETWORK_ERROR;
+        if (err != SUCCESS) {
+            if (err == ERR_NETWORK_ERROR) {
+                session->authenticated = false;
+            }
+            return err;
+        }
+        if (received != header.length) {
+            session->authenticated = false;
+            return ERR_NETWORK_ERROR;
+        }
         
         if (actual_size) *actual_size = header.length;
     } else {
@@ -97,18 +140,38 @@ error_code_t session_recv_message(session_t* session, message_type_t* type, void
 error_code_t session_recv_message_timeout(session_t* session, message_type_t* type, void* payload, size_t max_payload_size, size_t* actual_size, int timeout_ms) {
     if (!session || !type) return ERR_INVALID_PARAM;
     
+    /* Check if connection is still alive */
+    if (!connection_is_connected(&session->conn)) {
+        session->authenticated = false;
+        return ERR_NETWORK_ERROR;
+    }
+    
     // First, read the header with timeout
     message_header_t header;
     size_t received;
     
     error_code_t err = connection_recv_timeout(&session->conn, &header, sizeof(header), &received, timeout_ms);
-    if (err != SUCCESS) return err;
-    if (received != sizeof(header)) return ERR_NETWORK_ERROR;
+    if (err != SUCCESS) {
+        if (err == ERR_NETWORK_ERROR) {
+            session->authenticated = false;
+        }
+        return err;
+    }
+    if (received != sizeof(header)) {
+        session->authenticated = false;
+        return ERR_NETWORK_ERROR;
+    }
     
     // Convert from network byte order
     header.type = ntohl(header.type);
     header.length = ntohl(header.length);
     header.sequence = ntohl(header.sequence);
+    
+    /* Validate message header */
+    if (header.length > MAX_PAYLOAD_SIZE) {
+        session->authenticated = false;
+        return ERR_SERIALIZATION;
+    }
     
     *type = (message_type_t)header.type;
     
@@ -117,8 +180,16 @@ error_code_t session_recv_message_timeout(session_t* session, message_type_t* ty
         if (!payload || header.length > max_payload_size) return ERR_SERIALIZATION;
         
         err = connection_recv_timeout(&session->conn, payload, header.length, &received, timeout_ms);
-        if (err != SUCCESS) return err;
-        if (received != header.length) return ERR_NETWORK_ERROR;
+        if (err != SUCCESS) {
+            if (err == ERR_NETWORK_ERROR) {
+                session->authenticated = false;
+            }
+            return err;
+        }
+        if (received != header.length) {
+            session->authenticated = false;
+            return ERR_NETWORK_ERROR;
+        }
         
         if (actual_size) *actual_size = header.length;
     } else {

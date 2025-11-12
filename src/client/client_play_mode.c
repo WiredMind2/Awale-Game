@@ -96,38 +96,67 @@ static error_code_t request_board(const char* player_a, const char* player_b) {
     snprintf(board_req.player_a, MAX_PSEUDO_LEN, "%s", player_a);
     snprintf(board_req.player_b, MAX_PSEUDO_LEN, "%s", player_b);
     
-    return session_send_message(client_state_get_session(), MSG_GET_BOARD, &board_req, sizeof(board_req));
+    error_code_t err = session_send_message(client_state_get_session(), MSG_GET_BOARD, &board_req, sizeof(board_req));
+    
+    if (err == ERR_NETWORK_ERROR) {
+        printf("❌ Failed to send board request - connection lost\n");
+    } else if (err == ERR_TIMEOUT) {
+        printf("⚠️  Network slow - request timeout\n");
+    } else if (err != SUCCESS) {
+        printf("❌ Error sending board request: %s\n", error_to_string(err));
+    }
+    
+    return err;
 }
 
-/* Helper: Receive board state from server */
+/* Helper: Receive board state from server with retry logic */
 static error_code_t receive_board(msg_board_state_t* board) {
     message_type_t type;
     size_t size;
+    int retries = 0;
+    const int MAX_RETRIES = 2;
     
-    error_code_t err = session_recv_message_timeout(client_state_get_session(), &type, board, 
-                                                     sizeof(*board), &size, 5000);
-    
-    if (err == ERR_TIMEOUT) {
-        printf("⚠️  Server response timeout\n");
-        return err;
+    while (retries <= MAX_RETRIES) {
+        error_code_t err = session_recv_message_timeout(client_state_get_session(), &type, board, 
+                                                         sizeof(*board), &size, 5000);
+        
+        if (err == ERR_TIMEOUT) {
+            retries++;
+            if (retries <= MAX_RETRIES) {
+                printf("⚠️  Server response timeout (attempt %d/%d) - retrying...\n", retries, MAX_RETRIES + 1);
+                continue;
+            }
+            printf("❌ Server not responding after %d attempts\n", MAX_RETRIES + 1);
+            return err;
+        }
+        
+        if (err == ERR_NETWORK_ERROR) {
+            printf("❌ Connection lost - please restart client\n");
+            return err;
+        }
+        
+        if (err != SUCCESS) {
+            printf("❌ Error receiving board: %s\n", error_to_string(err));
+            return err;
+        }
+        
+        if (type != MSG_BOARD_STATE) {
+            /* Unexpected message type - might be out of order */
+            retries++;
+            if (retries <= MAX_RETRIES) {
+                printf("⚠️  Unexpected message type %d (expected %d) - retrying...\n", type, MSG_BOARD_STATE);
+                /* Request board again */
+                return ERR_UNKNOWN;
+            }
+            printf("❌ Protocol error - unexpected message type\n");
+            return ERR_UNKNOWN;
+        }
+        
+        /* Success */
+        return SUCCESS;
     }
     
-    if (err == ERR_NETWORK_ERROR) {
-        printf("❌ Connection lost\n");
-        return err;
-    }
-    
-    if (err != SUCCESS) {
-        printf("❌ Error receiving board: %s\n", error_to_string(err));
-        return err;
-    }
-    
-    if (type != MSG_BOARD_STATE) {
-        printf("❌ Unexpected message type: %d (expected %d)\n", type, MSG_BOARD_STATE);
-        return ERR_UNKNOWN;
-    }
-    
-    return SUCCESS;
+    return ERR_TIMEOUT;
 }
 
 /* Helper: Display board and current state */

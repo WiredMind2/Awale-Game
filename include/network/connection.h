@@ -33,6 +33,9 @@ error_code_t connection_recv_timeout(connection_t* conn, void* buffer, size_t si
 /* Connection state */
 bool connection_is_connected(const connection_t* conn);
 const char* connection_get_peer_ip(const connection_t* conn);
+error_code_t connection_enable_keepalive(connection_t* conn);
+error_code_t connection_set_nonblocking(connection_t* conn, bool enable);
+error_code_t connection_check_alive(connection_t* conn);
 
 /* UDP broadcast discovery */
 typedef struct {

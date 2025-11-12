@@ -13,6 +13,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <pthread.h>
+#include <time.h>
 
 #ifndef MAX_PAYLOAD_SIZE
 #define MAX_PAYLOAD_SIZE MAX_MESSAGE_SIZE
@@ -22,6 +23,8 @@
 void* notification_listener(void* arg) {
     (void)arg;
     session_t* session = client_state_get_session();
+    int consecutive_errors = 0;
+    const int MAX_CONSECUTIVE_ERRORS = 3;
     
     while (client_state_is_running()) {
         message_type_t type;
@@ -33,15 +36,40 @@ void* notification_listener(void* arg) {
                                                         MAX_PAYLOAD_SIZE, &size, 1000);
         
         if (err == ERR_TIMEOUT) {
+            consecutive_errors = 0;  /* Reset error counter on successful timeout */
             continue;  /* Normal timeout, continue listening */
         }
         
         if (err != SUCCESS) {
+            consecutive_errors++;
+            
             if (client_state_is_running()) {
-                printf("\n❌ Connection lost\n");
+                if (err == ERR_NETWORK_ERROR) {
+                    /* Connection is broken */
+                    printf("\n❌ Connection lost - server disconnected\n");
+                    printf("Please restart the client to reconnect.\n");
+                    break;
+                } else {
+                    /* Other error - log and retry */
+                    printf("\n⚠️ Network error: %s (attempt %d/%d)\n", 
+                           error_to_string(err), consecutive_errors, MAX_CONSECUTIVE_ERRORS);
+                    
+                    if (consecutive_errors >= MAX_CONSECUTIVE_ERRORS) {
+                        printf("❌ Too many consecutive errors - disconnecting\n");
+                        break;
+                    }
+                    
+                    /* Brief delay before retry */
+                    struct timespec ts = {0, 500000000};  /* 500ms */
+                    nanosleep(&ts, NULL);
+                    continue;
+                }
             }
             break;
         }
+        
+        /* Reset error counter on successful receive */
+        consecutive_errors = 0;
         
         /* Handle push notifications */
         if (type == MSG_CHALLENGE_RECEIVED) {
