@@ -153,6 +153,15 @@ error_code_t session_send_connect_ack(session_t* session, bool success, const ch
     return session_send_message(session, MSG_CONNECT_ACK, &ack, sizeof(ack));
 }
 
+error_code_t session_send_message_connect_ack(connection_t conn, const char* msg) {   
+    msg_connect_ack_t ack;
+    session_t temp_session;
+    temp_session.conn = conn;
+    strncpy(ack.message, msg ? msg : ("Failed"), 255);
+    ack.message[255] = '\0';
+    return session_send_message(&temp_session, MSG_CONNECT_ACK, &ack, sizeof(ack));
+}
+
 error_code_t session_send_board_state(session_t* session, const msg_board_state_t* board) {
     if (!session || !board) return ERR_INVALID_PARAM;
     return session_send_message(session, MSG_BOARD_STATE, board, sizeof(msg_board_state_t));
