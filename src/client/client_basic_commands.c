@@ -372,43 +372,30 @@ void cmd_view_player_stats(void) {
     printf("─────────────────────────────\n");
 }
 
-/* Send chat message */
+/* Send chat message - Interactive mode */
 void cmd_chat(void) {
     session_t* session = client_state_get_session();
     const char* my_pseudo = client_state_get_pseudo();
 
-    printf("\n💬 Send chat message\n");
-    printf("Usage: chat <recipient> <message> or chat all <message>\n");
-    printf("Enter command: ");
+    printf("\n💬 Interactive Chat Mode\n");
+    printf("Select recipient: 'all' for global chat or enter a player name for private chat\n");
+    printf("Recipient: ");
 
-    char input[512];
-    if (read_line(input, sizeof(input)) == NULL) {
+    char recipient_input[MAX_PSEUDO_LEN];
+    if (read_line(recipient_input, sizeof(recipient_input)) == NULL) {
         printf("❌ Invalid input\n");
-        return;
-    }
-
-    /* Parse input: expect "chat <recipient> <message>" or "chat all <message>" */
-    char* token = strtok(input, " ");
-    if (!token || strcmp(token, "chat") != 0) {
-        printf("❌ Invalid command format. Use: chat <recipient> <message> or chat all <message>\n");
-        return;
-    }
-
-    /* Get recipient */
-    token = strtok(NULL, " ");
-    if (!token) {
-        printf("❌ Missing recipient. Use 'all' for global chat or a player name for private chat\n");
         return;
     }
 
     char recipient[MAX_PSEUDO_LEN];
     memset(recipient, 0, sizeof(recipient));
 
-    if (strcmp(token, "all") == 0) {
+    if (strcmp(recipient_input, "all") == 0) {
         /* Global chat - leave recipient empty */
+        printf("✓ Global chat mode selected. Type your messages below.\n");
     } else {
         /* Private chat */
-        snprintf(recipient, MAX_PSEUDO_LEN, "%s", token);
+        snprintf(recipient, MAX_PSEUDO_LEN, "%s", recipient_input);
         if (strlen(recipient) == 0) {
             printf("❌ Invalid recipient name\n");
             return;
@@ -417,59 +404,69 @@ void cmd_chat(void) {
             printf("❌ You cannot send private messages to yourself\n");
             return;
         }
+        printf("✓ Private chat mode selected. Sending messages to %s.\n", recipient);
     }
 
-    /* Get message */
-    token = strtok(NULL, "");
-    if (!token || strlen(token) == 0) {
-        printf("❌ Missing message\n");
-        return;
-    }
+    printf("Type your message (or 'exit'/'quit' to leave chat mode):\n");
 
-    char message[MAX_CHAT_LEN];
-    memset(message, 0, sizeof(message));
-    snprintf(message, MAX_CHAT_LEN, "%s", token);
+    /* Interactive chat loop */
+    while (1) {
+        printf("> ");
+        fflush(stdout);
 
-    if (strlen(message) == 0) {
-        printf("❌ Message cannot be empty\n");
-        return;
-    }
+        char message[MAX_CHAT_LEN];
+        memset(message, 0, sizeof(message));
 
-    /* Prepare message */
-    msg_send_chat_t chat_msg;
-    memset(&chat_msg, 0, sizeof(chat_msg));
-    snprintf(chat_msg.recipient, MAX_PSEUDO_LEN, "%s", recipient);
-    snprintf(chat_msg.message, MAX_CHAT_LEN, "%s", message);
+        if (read_line(message, sizeof(message)) == NULL) {
+            printf("❌ Invalid input\n");
+            break;
+        }
 
-    error_code_t err = session_send_message(session, MSG_SEND_CHAT, &chat_msg, sizeof(chat_msg));
-    if (err != SUCCESS) {
-        printf("❌ Error sending chat message: %s\n", error_to_string(err));
-        return;
-    }
+        /* Check for exit commands */
+        if (strcmp(message, "exit") == 0 || strcmp(message, "quit") == 0 ||
+            strcmp(message, "") == 0) {
+            printf("✓ Exited chat mode\n");
+            break;
+        }
 
-    /* Wait for acknowledgment */
-    message_type_t type;
-    char response[MAX_MESSAGE_SIZE];
-    size_t size;
+        if (strlen(message) == 0) {
+            printf("❌ Message cannot be empty\n");
+            continue;
+        }
 
-    err = session_recv_message_timeout(session, &type, response, MAX_MESSAGE_SIZE, &size, 5000);
-    if (err == ERR_TIMEOUT) {
-        printf("❌ Timeout: Server did not respond\n");
-        return;
-    }
-    if (err != SUCCESS) {
-        printf("❌ Error receiving response: %s\n", error_to_string(err));
-        return;
-    }
+        /* Prepare message */
+        msg_send_chat_t chat_msg;
+        memset(&chat_msg, 0, sizeof(chat_msg));
+        snprintf(chat_msg.recipient, MAX_PSEUDO_LEN, "%s", recipient);
+        snprintf(chat_msg.message, MAX_CHAT_LEN, "%s", message);
 
-    if (type == MSG_ERROR) {
-        msg_error_t* error = (msg_error_t*)response;
-        printf("❌ Error: %s\n", error->error_msg);
-    } else {
-        if (strlen(recipient) == 0) {
-            printf("✓ Global message sent: %s\n", message);
+        error_code_t err = session_send_message(session, MSG_SEND_CHAT, &chat_msg, sizeof(chat_msg));
+        if (err != SUCCESS) {
+            printf("❌ Error sending chat message: %s\n", error_to_string(err));
+            continue;
+        }
+
+        /* Wait for acknowledgment */
+        message_type_t type;
+        char response[MAX_MESSAGE_SIZE];
+        size_t size;
+
+        err = session_recv_message_timeout(session, &type, response, MAX_MESSAGE_SIZE, &size, 5000);
+        if (err == ERR_TIMEOUT) {
+            printf("❌ Timeout: Server did not respond\n");
+            continue;
+        }
+        if (err != SUCCESS) {
+            printf("❌ Error receiving response: %s\n", error_to_string(err));
+            continue;
+        }
+
+        if (type == MSG_ERROR) {
+            msg_error_t* error = (msg_error_t*)response;
+            printf("❌ Error: %s\n", error->error_msg);
         } else {
-            printf("✓ Private message sent to %s: %s\n", recipient, message);
+            /* Message sent successfully - the notification handler will show it */
+            /* Continue to next message */
         }
     }
 }

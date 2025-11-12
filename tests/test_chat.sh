@@ -39,7 +39,7 @@ fi
 echo "[test] Testing chat functionality between multiple clients..."
 
 # Client 1: Alice - connect and wait
-printf "9\nchat all Hello everyone from Alice!\n6\n" | \
+printf "9\nall\nHello everyone from Alice!\nexit\n6\n" | \
     "$ROOT_DIR"/build/awale_client 127.0.0.1 "$PORT" Alice >"$CLIENT1_LOG" 2>&1 || true &
 
 CLIENT1_PID=$!
@@ -48,7 +48,7 @@ CLIENT1_PID=$!
 sleep 1
 
 # Client 2: Bob - connect, send global message, then private message to Alice
-printf "9\nchat all Hi from Bob!\n9\nchat Alice Private message from Bob to Alice\n6\n" | \
+printf "9\nall\nHi from Bob!\nexit\n9\nAlice\nPrivate message from Bob to Alice\nexit\n6\n" | \
     "$ROOT_DIR"/build/awale_client 127.0.0.1 "$PORT" Bob >"$CLIENT2_LOG" 2>&1 || true &
 
 CLIENT2_PID=$!
