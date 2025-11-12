@@ -221,7 +221,9 @@ void active_games_notify_turn(void) {
     /* Write to pipe to wake up select() */
     if (g_active_games.notification_pipe[1] != -1) {
         char byte = 1;
-        (void)write(g_active_games.notification_pipe[1], &byte, 1);
+        ssize_t _r = write(g_active_games.notification_pipe[1], &byte, 1); 
+        (void)_r;
+
     }
     
     pthread_mutex_unlock(&g_active_games.lock);

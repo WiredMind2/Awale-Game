@@ -79,7 +79,7 @@ int main(int argc, char** argv) {
         int choice;
         if (scanf("%d", &choice) != 1) {
             clear_input();
-            printf("❌ Invalid input\n");
+            printf("Invalid input\n");
             continue;
         }
         clear_input();
@@ -89,14 +89,14 @@ int main(int argc, char** argv) {
             case 2: cmd_challenge_player(); break;
             case 3: cmd_view_challenges(); break;
             case 4:
-                printf("\n👋 Disconnecting...\n");
+                printf("\nDisconnecting...\n");
                 session_send_message(&g_session, MSG_DISCONNECT, NULL, 0);
                 client_state_set_running(false);
                 break;
             case 5: cmd_play_mode(); break;
             case 6: cmd_spectator_mode(); break;
             default:
-                printf("❌ Invalid choice. Please select 1-6.\n");
+                printf("Invalid choice. Please select 1-6.\n");
                 break;
         }
     }
