@@ -29,6 +29,7 @@ error_code_t session_recv_message_timeout(session_t* session, message_type_t* ty
 /* Convenience functions for specific messages */
 error_code_t session_send_error(session_t* session, error_code_t error, const char* msg);
 error_code_t session_send_connect_ack(session_t* session, bool success, const char* msg);
+error_code_t session_send_message_connect_ack(connection_t conn, const char* msg);
 error_code_t session_send_board_state(session_t* session, const msg_board_state_t* board);
 error_code_t session_send_move_result(session_t* session, const msg_move_result_t* result);
 

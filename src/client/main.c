@@ -69,7 +69,7 @@ int main(int argc, char** argv) {
     
     /* Start notification listener thread */
     pthread_t notif_thread = start_notification_listener();
-    printf("✓ Notification listener started\n");
+    printf("Notification listener started\n");
     
     /* Main menu loop */
     client_state_set_running(true);
@@ -108,7 +108,7 @@ int main(int argc, char** argv) {
     /* Cleanup */
     pthread_join(notif_thread, NULL);
     session_close(&g_session);
-    printf("✓ Goodbye!\n\n");
+    printf("Goodbye!\n\n");
     
     return 0;
 }
@@ -119,17 +119,17 @@ static error_code_t establish_connection(const char* pseudo, const char* server_
     error_code_t err = SUCCESS;
 
     if (server_ip == NULL) {
-        printf("🔍 Broadcasting discovery request on local network...\n");
+        printf("Broadcasting discovery request on local network...\n");
         /* Step 1: UDP broadcast to discover server */
         err = connection_broadcast_discovery(&discovery, 5);
         if (err != SUCCESS) {
-            printf("❌ No server found on local network\n");
+            printf("No server found on local network\n");
             return err;
         }
-        printf("✓ Server discovered at %s:%d\n", discovery.server_ip, discovery.discovery_port);
+        printf("Server discovered at %s:%d\n", discovery.server_ip, discovery.discovery_port);
     } else {
         /* Use provided server IP and default discovery port */
-        printf("🔍 Using provided server IP: %s\n", server_ip);
+        printf("Using provided server IP: %s\n", server_ip);
         memset(&discovery, 0, sizeof(discovery));
         snprintf(discovery.server_ip, sizeof(discovery.server_ip), "%s", server_ip);
         discovery.discovery_port = 12345; /* default discovery port */
@@ -139,11 +139,11 @@ static error_code_t establish_connection(const char* pseudo, const char* server_
     connection_init(&session->conn);
     err = connection_connect(&session->conn, (server_ip != NULL) ? server_ip : discovery.server_ip, discovery.discovery_port);
     if (err != SUCCESS) {
-        printf("❌ Failed to connect to server\n");
+        printf("Failed to connect to server\n");
         return err;
     }
     
-    printf("✓ Connected to server at %s:%d\n", (server_ip != NULL) ? server_ip : discovery.server_ip, discovery.discovery_port);
+    printf("Connected to server at %s:%d\n", (server_ip != NULL) ? server_ip : discovery.server_ip, discovery.discovery_port);
 
     /* Send MSG_CONNECT */
     msg_connect_t connect_msg;
@@ -153,7 +153,7 @@ static error_code_t establish_connection(const char* pseudo, const char* server_
     
     err = session_send_message(session, MSG_CONNECT, &connect_msg, sizeof(connect_msg));
     if (err != SUCCESS) {
-        printf("❌ Failed to send connect message\n");
+        printf("Failed to send connect message\n");
         connection_close(&session->conn);
         return err;
     }
@@ -165,13 +165,13 @@ static error_code_t establish_connection(const char* pseudo, const char* server_
     
     err = session_recv_message(session, &type, &ack, sizeof(ack), &size);
     if (err != SUCCESS || type != MSG_CONNECT_ACK) {
-        printf("❌ Failed to receive acknowledgment\n");
+        printf("Failed to receive acknowledgment\n");
         connection_close(&session->conn);
         return ERR_NETWORK_ERROR;
     }
     
     if (!ack.success) {
-        printf("❌ Connection rejected: %s\n", ack.message);
+        printf("Connection rejected: %s\n", ack.message);
         connection_close(&session->conn);
         return ERR_NETWORK_ERROR;
     }
