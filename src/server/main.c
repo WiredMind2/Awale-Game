@@ -101,11 +101,11 @@ int main(int argc, char** argv) {
         return 1;
     }
     
-    printf("✓ Game manager initialized\n");
-    printf("✓ Matchmaking initialized\n");
-    printf("✓ Session registry initialized\n");
-    printf("✓ Message handlers initialized\n");
-    printf("✓ Connection manager initialized\n");
+    printf("Game manager initialisé\n");
+    printf("Matchmaking initialisé\n");
+    printf("Session registry initialisé\n");
+    printf("Message handlers initialisé\n");
+    printf("Connection manager initialisé\n");
 
     /* Setup signal handler */
     signal(SIGINT, signal_handler);
@@ -119,7 +119,7 @@ int main(int argc, char** argv) {
         return 1;
     }
     pthread_detach(udp_thread);
-    printf("✓ UDP broadcast discovery listening on port 12346\n");
+    printf("UDP broadcast discovery listening on port 12346\n");
 
     /* Create discovery server (single socket) */
     connection_t discovery_server;
@@ -130,7 +130,7 @@ int main(int argc, char** argv) {
         return 1;
     }
 
-    printf("✓ Discovery server listening on port %d\n", g_discovery_port);
+    printf("Discovery server listening on port %d\n", g_discovery_port);
     printf("\nServer ready! Waiting for connections...\n\n");
 
     /* Accept loop */
@@ -192,7 +192,11 @@ int main(int argc, char** argv) {
         {
             if (strcmp(connect_msg.pseudo, list.players[i].pseudo) == 0)
             {      
-                session_send_message_connect_ack(client_conn, "Pseudo deja utilise");
+                // Send a proper connect ACK with success=false so the client will detect the rejection
+                session_t temp_fail_session;
+                memset(&temp_fail_session, 0, sizeof(temp_fail_session));
+                temp_fail_session.conn = client_conn;
+                session_send_connect_ack(&temp_fail_session, false, "Pseudo deja utilise");
                 pseudo_already_use=true;
                 break;
             }
