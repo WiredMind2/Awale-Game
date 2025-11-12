@@ -18,11 +18,11 @@
 void cmd_list_players(void) {
     session_t* session = client_state_get_session();
     
-    printf("\nListe des joueurs connectes...\n");
+    printf("\n📋 Listing connected players...\n");
     
     error_code_t err = session_send_message(session, MSG_LIST_PLAYERS, NULL, 0);
     if (err != SUCCESS) {
-        printf("Erreur a l'envoi de la requète: %s\n", error_to_string(err));
+        printf("❌ Error sending request: %s\n", error_to_string(err));
         return;
     }
     
@@ -32,11 +32,11 @@ void cmd_list_players(void) {
     
     err = session_recv_message(session, &type, &list, sizeof(list), &size);
     if (err != SUCCESS || type != MSG_PLAYER_LIST) {
-        printf("Erreur a la reception de la reponse\n");
+        printf("❌ Error receiving response\n");
         return;
     }
     
-    printf("\nJoueurs connectes (%d):\n", list.count);
+    printf("\n✓ Connected players (%d):\n", list.count);
     printf("─────────────────────────────\n");
     for (int i = 0; i < list.count; i++) {
         printf("  %d. %s (%s)\n", i + 1, list.players[i].pseudo, list.players[i].ip);
@@ -181,5 +181,295 @@ void cmd_view_challenges(void) {
         printf("✓ Challenge from %s declined\n", selected_challenger);
     } else {
         printf("✓ Challenge from %s accepted! Game will start shortly...\n", selected_challenger);
+    }
+}
+
+/* Set player bio */
+void cmd_set_bio(void) {
+    session_t* session = client_state_get_session();
+    
+    printf("\n📝 Setting your bio (max 10 lines, 255 chars each)\n");
+    printf("Enter your bio lines. Enter an empty line to finish:\n");
+    
+    msg_set_bio_t bio_msg;
+    memset(&bio_msg, 0, sizeof(bio_msg));
+    
+    char line[256];
+    int line_count = 0;
+    
+    while (line_count < 10) {
+        printf("Line %d: ", line_count + 1);
+        if (!fgets(line, sizeof(line), stdin)) {
+            break;
+        }
+        
+        /* Remove newline */
+        size_t len = strlen(line);
+        if (len > 0 && line[len - 1] == '\n') {
+            line[len - 1] = '\0';
+            len--;
+        }
+        
+        /* Empty line ends input */
+        if (len == 0) {
+            break;
+        }
+        
+        /* Copy line to bio */
+        snprintf(bio_msg.bio[line_count], 256, "%s", line);
+        bio_msg.bio[line_count][255] = '\0';
+        line_count++;
+    }
+    
+    bio_msg.bio_lines = line_count;
+    
+    if (line_count == 0) {
+        printf("❌ No bio entered\n");
+        return;
+    }
+    
+    error_code_t err = session_send_message(session, MSG_SET_BIO, &bio_msg, sizeof(bio_msg));
+    if (err != SUCCESS) {
+        printf("❌ Error sending bio: %s\n", error_to_string(err));
+        return;
+    }
+    
+    message_type_t type;
+    char dummy[1];
+    size_t size;
+    
+    err = session_recv_message(session, &type, dummy, sizeof(dummy), &size);
+    if (err != SUCCESS) {
+        printf("❌ Error receiving response\n");
+        return;
+    }
+    
+    printf("✓ Bio updated successfully (%d lines)\n", line_count);
+}
+
+/* View player bio */
+void cmd_view_bio(void) {
+    session_t* session = client_state_get_session();
+    
+    printf("\n📖 View player bio\n");
+    printf("Enter player name: ");
+    
+    char target_player[MAX_PSEUDO_LEN];
+    if (!fgets(target_player, sizeof(target_player), stdin)) {
+        printf("❌ Error reading input\n");
+        return;
+    }
+    
+    /* Remove newline */
+    size_t len = strlen(target_player);
+    if (len > 0 && target_player[len - 1] == '\n') {
+        target_player[len - 1] = '\0';
+    }
+    
+    if (strlen(target_player) == 0) {
+        printf("❌ No player name entered\n");
+        return;
+    }
+    
+    msg_get_bio_t bio_req;
+    memset(&bio_req, 0, sizeof(bio_req));
+    snprintf(bio_req.target_player, MAX_PSEUDO_LEN, "%s", target_player);
+    
+    error_code_t err = session_send_message(session, MSG_GET_BIO, &bio_req, sizeof(bio_req));
+    if (err != SUCCESS) {
+        printf("❌ Error sending request: %s\n", error_to_string(err));
+        return;
+    }
+    
+    message_type_t type;
+    msg_bio_response_t response;
+    size_t size;
+    
+    err = session_recv_message(session, &type, &response, sizeof(response), &size);
+    if (err != SUCCESS || type != MSG_BIO_RESPONSE) {
+        printf("❌ Error receiving response\n");
+        return;
+    }
+    
+    if (!response.success) {
+        printf("❌ %s\n", response.message);
+        return;
+    }
+    
+    printf("\n📖 Bio for %s:\n", response.player);
+    printf("─────────────────────────────\n");
+    
+    if (response.bio_lines == 0) {
+        printf("  (No bio set)\n");
+    } else {
+        for (int i = 0; i < response.bio_lines; i++) {
+            printf("  %s\n", response.bio[i]);
+        }
+    }
+    printf("─────────────────────────────\n");
+}
+
+/* View player statistics */
+void cmd_view_player_stats(void) {
+    session_t* session = client_state_get_session();
+    
+    printf("\n📊 View player statistics\n");
+    printf("Enter player name (or press Enter for your own stats): ");
+    
+    char target_player[MAX_PSEUDO_LEN];
+    if (!fgets(target_player, sizeof(target_player), stdin)) {
+        printf("❌ Error reading input\n");
+        return;
+    }
+    
+    /* Remove newline */
+    size_t len = strlen(target_player);
+    if (len > 0 && target_player[len - 1] == '\n') {
+        target_player[len - 1] = '\0';
+    }
+    
+    /* If empty, use current player's pseudo */
+    if (strlen(target_player) == 0) {
+        strncpy(target_player, client_state_get_pseudo(), MAX_PSEUDO_LEN - 1);
+    }
+    
+    msg_get_player_stats_t stats_req;
+    memset(&stats_req, 0, sizeof(stats_req));
+    snprintf(stats_req.target_player, MAX_PSEUDO_LEN, "%s", target_player);
+    
+    error_code_t err = session_send_message(session, MSG_GET_PLAYER_STATS, &stats_req, sizeof(stats_req));
+    if (err != SUCCESS) {
+        printf("❌ Error sending request: %s\n", error_to_string(err));
+        return;
+    }
+    
+    message_type_t type;
+    msg_player_stats_t response;
+    size_t size;
+    
+    err = session_recv_message(session, &type, &response, sizeof(response), &size);
+    if (err != SUCCESS || type != MSG_PLAYER_STATS) {
+        printf("❌ Error receiving response\n");
+        return;
+    }
+    
+    if (!response.success) {
+        printf("❌ %s\n", response.message);
+        return;
+    }
+    
+    printf("\n📊 Statistics for %s:\n", response.player);
+    printf("─────────────────────────────\n");
+    printf("  Games played: %d\n", response.games_played);
+    printf("  Games won:    %d\n", response.games_won);
+    printf("  Games lost:   %d\n", response.games_lost);
+    printf("  Total score:  %d\n", response.total_score);
+    printf("  Win rate:     %.1f%%\n", 
+           response.games_played > 0 ? 
+           (float)response.games_won / response.games_played * 100 : 0);
+    printf("  First seen:   %s", ctime(&response.first_seen));
+    printf("  Last seen:    %s", ctime(&response.last_seen));
+    printf("─────────────────────────────\n");
+}
+
+/* Send chat message */
+void cmd_chat(void) {
+    session_t* session = client_state_get_session();
+    const char* my_pseudo = client_state_get_pseudo();
+
+    printf("\n💬 Send chat message\n");
+    printf("Usage: chat <recipient> <message> or chat all <message>\n");
+    printf("Enter command: ");
+
+    char input[512];
+    if (read_line(input, sizeof(input)) == NULL) {
+        printf("❌ Invalid input\n");
+        return;
+    }
+
+    /* Parse input: expect "chat <recipient> <message>" or "chat all <message>" */
+    char* token = strtok(input, " ");
+    if (!token || strcmp(token, "chat") != 0) {
+        printf("❌ Invalid command format. Use: chat <recipient> <message> or chat all <message>\n");
+        return;
+    }
+
+    /* Get recipient */
+    token = strtok(NULL, " ");
+    if (!token) {
+        printf("❌ Missing recipient. Use 'all' for global chat or a player name for private chat\n");
+        return;
+    }
+
+    char recipient[MAX_PSEUDO_LEN];
+    memset(recipient, 0, sizeof(recipient));
+
+    if (strcmp(token, "all") == 0) {
+        /* Global chat - leave recipient empty */
+    } else {
+        /* Private chat */
+        snprintf(recipient, MAX_PSEUDO_LEN, "%s", token);
+        if (strlen(recipient) == 0) {
+            printf("❌ Invalid recipient name\n");
+            return;
+        }
+        if (strcmp(recipient, my_pseudo) == 0) {
+            printf("❌ You cannot send private messages to yourself\n");
+            return;
+        }
+    }
+
+    /* Get message */
+    token = strtok(NULL, "");
+    if (!token || strlen(token) == 0) {
+        printf("❌ Missing message\n");
+        return;
+    }
+
+    char message[MAX_CHAT_LEN];
+    memset(message, 0, sizeof(message));
+    snprintf(message, MAX_CHAT_LEN, "%s", token);
+
+    if (strlen(message) == 0) {
+        printf("❌ Message cannot be empty\n");
+        return;
+    }
+
+    /* Prepare message */
+    msg_send_chat_t chat_msg;
+    memset(&chat_msg, 0, sizeof(chat_msg));
+    snprintf(chat_msg.recipient, MAX_PSEUDO_LEN, "%s", recipient);
+    snprintf(chat_msg.message, MAX_CHAT_LEN, "%s", message);
+
+    error_code_t err = session_send_message(session, MSG_SEND_CHAT, &chat_msg, sizeof(chat_msg));
+    if (err != SUCCESS) {
+        printf("❌ Error sending chat message: %s\n", error_to_string(err));
+        return;
+    }
+
+    /* Wait for acknowledgment */
+    message_type_t type;
+    char response[MAX_MESSAGE_SIZE];
+    size_t size;
+
+    err = session_recv_message_timeout(session, &type, response, MAX_MESSAGE_SIZE, &size, 5000);
+    if (err == ERR_TIMEOUT) {
+        printf("❌ Timeout: Server did not respond\n");
+        return;
+    }
+    if (err != SUCCESS) {
+        printf("❌ Error receiving response: %s\n", error_to_string(err));
+        return;
+    }
+
+    if (type == MSG_ERROR) {
+        msg_error_t* error = (msg_error_t*)response;
+        printf("❌ Error: %s\n", error->error_msg);
+    } else {
+        if (strlen(recipient) == 0) {
+            printf("✓ Global message sent: %s\n", message);
+        } else {
+            printf("✓ Private message sent to %s: %s\n", recipient, message);
+        }
     }
 }

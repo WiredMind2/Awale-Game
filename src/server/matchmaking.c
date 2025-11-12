@@ -1,4 +1,5 @@
 #include "../../include/server/matchmaking.h"
+#include "../../include/server/storage.h"
 #include <string.h>
 #include <stdio.h>
 
@@ -16,6 +17,9 @@ error_code_t matchmaking_init(matchmaking_t* mm) {
     for (int i = 0; i < MAX_PLAYERS; i++) {
         mm->players[i].connected = false;
     }
+    
+    // Load persisted player data
+    storage_load_players(mm);
     
     return SUCCESS;
 }
@@ -168,4 +172,68 @@ error_code_t matchmaking_remove_challenge(matchmaking_t* mm, const char* challen
     
     pthread_mutex_unlock(&mm->lock);
     return ERR_GAME_NOT_FOUND;  /* Challenge not found */
+}
+
+error_code_t matchmaking_update_player_stats(matchmaking_t* mm, const char* pseudo, 
+                                            bool game_won, int score_earned) {
+    if (!mm || !pseudo) return ERR_INVALID_PARAM;
+    
+    pthread_mutex_lock(&mm->lock);
+    
+    for (int i = 0; i < mm->player_count; i++) {
+        if (strcmp(mm->players[i].info.pseudo, pseudo) == 0) {
+            mm->players[i].info.games_played++;
+            if (game_won) {
+                mm->players[i].info.games_won++;
+            } else {
+                mm->players[i].info.games_lost++;
+            }
+            mm->players[i].info.total_score += score_earned;
+            
+            // Save updated player data to disk
+            storage_save_players(mm);
+            
+            pthread_mutex_unlock(&mm->lock);
+            return SUCCESS;
+        }
+    }
+    
+    pthread_mutex_unlock(&mm->lock);
+    return ERR_PLAYER_NOT_FOUND;
+}
+
+error_code_t matchmaking_get_player_stats(matchmaking_t* mm, const char* pseudo, 
+                                         player_info_t* info_out) {
+    if (!mm || !pseudo || !info_out) return ERR_INVALID_PARAM;
+    
+    pthread_mutex_lock(&mm->lock);
+    
+    for (int i = 0; i < mm->player_count; i++) {
+        if (strcmp(mm->players[i].info.pseudo, pseudo) == 0) {
+            memcpy(info_out, &mm->players[i].info, sizeof(player_info_t));
+            pthread_mutex_unlock(&mm->lock);
+            return SUCCESS;
+        }
+    }
+    
+    pthread_mutex_unlock(&mm->lock);
+    return ERR_PLAYER_NOT_FOUND;
+}
+
+error_code_t matchmaking_set_player_bio(matchmaking_t* mm, const char* pseudo, const char bio[][256], int lines) {
+    if (!mm || !pseudo || !bio || lines < 0 || lines > 10) return ERR_INVALID_PARAM;
+    pthread_mutex_lock(&mm->lock);
+    for (int i = 0; i < mm->player_count; i++) {
+        if (strcmp(mm->players[i].info.pseudo, pseudo) == 0) {
+            mm->players[i].info.bio_lines = lines;
+            for (int b = 0; b < lines; b++) {
+                snprintf(mm->players[i].info.bio[b], sizeof(mm->players[i].info.bio[b]), "%s", bio[b]);
+            }
+            storage_save_players(mm);
+            pthread_mutex_unlock(&mm->lock);
+            return SUCCESS;
+        }
+    }
+    pthread_mutex_unlock(&mm->lock);
+    return ERR_PLAYER_NOT_FOUND;
 }

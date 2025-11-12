@@ -30,13 +30,17 @@ void print_menu(void) {
         printf(" 🔔 [%d pending]", pending);
     }
     printf("\n");
-    printf("  4. Quit\n");
-    printf("  5. 🎮 Play mode");
+    printf("  4. 📝 Set your bio\n");
+    printf("  5. 📖 View player bio\n");
+    printf("  6. 📊 View player statistics\n");
+    printf("  7. Quit\n");
+    printf("  8. 🎮 Play mode");
     if (active > 0) {
         printf(" [%d active game%s]", active, active > 1 ? "s" : "");
     }
     printf("\n");
-    printf("  6. 👁️  Spectator mode\n");
+    printf("  9. 💬 Chat\n");
+    printf("  10. 👁️  Spectator mode\n");
     printf("═════════════════════════════════════════════════════════\n");
     printf("Your choice: ");
 }

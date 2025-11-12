@@ -1,4 +1,5 @@
 #include "../../include/server/game_manager.h"
+#include "../../include/server/storage.h"
 #include <string.h>
 #include <stdio.h>
 
@@ -12,6 +13,9 @@ error_code_t game_manager_init(game_manager_t* manager) {
         manager->games[i].active = false;
         pthread_mutex_init(&manager->games[i].lock, NULL);
     }
+    
+    // Load persisted games
+    storage_load_all_games(manager);
     
     return SUCCESS;
 }
@@ -79,6 +83,28 @@ error_code_t game_manager_create_game(game_manager_t* manager, const char* playe
     return SUCCESS;
 }
 
+error_code_t game_manager_remove_game(game_manager_t* manager, const char* game_id) {
+    if (!manager || !game_id) return ERR_INVALID_PARAM;
+    
+    pthread_mutex_lock(&manager->lock);
+    
+    game_instance_t* game = game_manager_find_game(manager, game_id);
+    if (!game) {
+        pthread_mutex_unlock(&manager->lock);
+        return ERR_GAME_NOT_FOUND;
+    }
+    
+    // Delete saved game file when game ends
+    storage_delete_game(game->game_id);
+    
+    // Mark game as inactive
+    game->active = false;
+    manager->game_count--;
+    
+    pthread_mutex_unlock(&manager->lock);
+    return SUCCESS;
+}
+
 void game_manager_generate_id(const char* player_a, const char* player_b, char* game_id) {
     snprintf(game_id, MAX_GAME_ID_LEN, "%s-vs-%s", player_a, player_b);
 }
@@ -135,6 +161,11 @@ error_code_t game_manager_play_move(game_manager_t* manager, const char* game_id
     
     // Execute move
     error_code_t result = board_execute_move(&game->board, player_id, pit_index, seeds_captured);
+    
+    // Save game state after successful move
+    if (result == SUCCESS) {
+        storage_save_game(game);
+    }
     
     pthread_mutex_unlock(&game->lock);
     return result;

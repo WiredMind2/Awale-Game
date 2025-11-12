@@ -1,6 +1,7 @@
 #include "../../include/game/rules.h"
 #include "../../include/game/board.h"
 #include <string.h>
+#include <stdio.h>
 
 error_code_t rules_validate_move(const board_t* board, player_id_t player, int pit_index) {
     if (!board) return ERR_INVALID_PARAM;
@@ -62,6 +63,8 @@ bool rules_would_starve_opponent(const board_t* board, player_id_t player, int p
     error_code_t result = rules_simulate_move(board, player, pit_index, &sim_board, &seeds_captured);
     if (result != SUCCESS) return false;
     
+    /* (no-op) */
+
     // Check if opponent side is empty after the move
     player_id_t opponent = (player == PLAYER_A) ? PLAYER_B : PLAYER_A;
     return board_is_side_empty(&sim_board, opponent);

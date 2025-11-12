@@ -53,6 +53,15 @@ bool matchmaking_has_mutual_challenge(matchmaking_t* mm, const char* player_a, c
 int matchmaking_count_challenges(matchmaking_t* mm);
 int matchmaking_count_challenges_for(matchmaking_t* mm, const char* player);
 
+/* Player statistics management */
+error_code_t matchmaking_update_player_stats(matchmaking_t* mm, const char* pseudo, 
+                                            bool game_won, int score_earned);
+error_code_t matchmaking_get_player_stats(matchmaking_t* mm, const char* pseudo, 
+                                         player_info_t* info_out);
+
+/* Update player's bio lines */
+error_code_t matchmaking_set_player_bio(matchmaking_t* mm, const char* pseudo, const char bio[][256], int lines);
+
 /* Cleanup */
 void matchmaking_cleanup_old_challenges(matchmaking_t* mm, int max_age_seconds);
 

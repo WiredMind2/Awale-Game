@@ -4,7 +4,7 @@
 # Compiler and flags
 CC := gcc
 CFLAGS := -Wall -Wextra -Werror -std=c11 -O2 -I./include
-LDFLAGS := -pthread
+LDFLAGS := -pthread -lz
 
 # Directories
 SRC_DIR := src
@@ -38,7 +38,7 @@ CLIENT_BIN := $(BUILD_DIR)/awale_client
 TEST_BIN := $(BUILD_DIR)/test_game
 
 # Phony targets
-.PHONY: all clean server client test dirs help run-server run-client debug
+.PHONY: all clean server client test test-game test-network test-storage test-integration test-comm test-bio-stats test-game-lifecycle dirs help run-server run-client debug
 
 # Default target
 all: dirs server client
@@ -54,6 +54,11 @@ help:
 	@echo "  test         - Build and run all tests"
 	@echo "  test-game    - Run game logic tests only"
 	@echo "  test-network - Run network layer tests only"
+	@echo "  test-storage - Run storage layer tests only"
+	@echo "  test-integration- Run all integration tests"
+	@echo "  test-comm       - Run communication test only"
+	@echo "  test-bio-stats  - Run bio/stats test only"
+	@echo "  test-game-lifecycle - Run game lifecycle test only"
 	@echo "  clean        - Remove build artifacts"
 	@echo "  dirs         - Create necessary directories"
 	@echo "  run-server   - Build and run server on port 12345"
@@ -102,9 +107,10 @@ debug: clean all
 # Test binaries
 TEST_GAME_LOGIC := $(BUILD_DIR)/test_game_logic
 TEST_NETWORK := $(BUILD_DIR)/test_network
+TEST_STORAGE := $(BUILD_DIR)/test_storage
 
 # Test targets
-test: test-game test-network
+test: test-game test-network test-storage test-integration
 	@echo ""
 	@echo "═══════════════════════════════════════════════════════"
 	@echo "  ✓ All tests completed successfully!"
@@ -118,10 +124,32 @@ test-network: dirs $(TEST_NETWORK)
 	@echo "Running network layer tests..."
 	@$(TEST_NETWORK)
 
+test-storage: dirs $(TEST_STORAGE)
+	@echo "Running storage layer tests..."
+	@$(TEST_STORAGE)
+
+test-integration: test-comm test-bio-stats test-game-lifecycle
+	@echo "Integration tests completed"
+
+test-comm: server
+	@echo "Running communication integration test..."
+	@chmod +x tests/test_comm.sh && tests/test_comm.sh
+
+test-bio-stats: server
+	@echo "Running bio and stats integration test..."
+	@chmod +x tests/test_bio_stats.sh && tests/test_bio_stats.sh
+
+test-game-lifecycle: server
+	@echo "Running game lifecycle integration test..."
+	@chmod +x tests/test_game_lifecycle.sh && tests/test_game_lifecycle.sh
+
 $(TEST_GAME_LOGIC): $(COMMON_OBJ) $(GAME_OBJ) tests/test_game_logic.c
 	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
 
 $(TEST_NETWORK): $(COMMON_OBJ) $(NETWORK_OBJ) tests/test_network.c
+	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
+
+$(TEST_STORAGE): $(SHARED_OBJ) $(filter-out $(BUILD_DIR)/server/main.o,$(SERVER_OBJ)) tests/test_storage.c
 	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
 
 # Run server (discovery port with UDP broadcast support)

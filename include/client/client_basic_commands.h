@@ -8,5 +8,9 @@
 void cmd_list_players(void);
 void cmd_challenge_player(void);
 void cmd_view_challenges(void);
+void cmd_set_bio(void);
+void cmd_view_bio(void);
+void cmd_view_player_stats(void);
+void cmd_chat(void);
 
 #endif /* CLIENT_BASIC_COMMANDS_H */

@@ -20,22 +20,26 @@ error_code_t select_context_init(select_context_t* ctx, int timeout_sec, int tim
     return SUCCESS;
 }
 
-void select_context_add_read(select_context_t* ctx, int fd) {
-    if (!ctx || fd < 0) return;
-    
+error_code_t select_context_add_read(select_context_t* ctx, int fd) {
+    if (!ctx) return ERR_INVALID_PARAM;
+    if (fd < 0) return ERR_INVALID_PARAM;
+
     FD_SET(fd, &ctx->read_fds);
     if (fd > ctx->max_fd) {
         ctx->max_fd = fd;
     }
+    return SUCCESS;
 }
 
-void select_context_add_write(select_context_t* ctx, int fd) {
-    if (!ctx || fd < 0) return;
-    
+error_code_t select_context_add_write(select_context_t* ctx, int fd) {
+    if (!ctx) return ERR_INVALID_PARAM;
+    if (fd < 0) return ERR_INVALID_PARAM;
+
     FD_SET(fd, &ctx->write_fds);
     if (fd > ctx->max_fd) {
         ctx->max_fd = fd;
     }
+    return SUCCESS;
 }
 
 bool select_context_is_readable(select_context_t* ctx, int fd) {

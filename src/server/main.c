@@ -14,6 +14,7 @@
 #include "../../include/server/server_connection.h"
 #include "../../include/network/connection.h"
 #include "../../include/network/session.h"
+#include "../../include/server/storage.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -42,6 +43,16 @@ void signal_handler(int sig) {
     (void)sig;
     g_running = false;
     printf("\n\nShutting down server...\n");
+}
+
+/* Simple FNV-1a 32-bit hash for strings */
+static uint32_t fnv1a_hash(const char *s) {
+    uint32_t hash = 2166136261u;
+    while (*s) {
+        hash ^= (unsigned char)*s++;
+        hash *= 16777619u;
+    }
+    return hash;
 }
 
 int main(int argc, char** argv) {
@@ -77,6 +88,12 @@ int main(int argc, char** argv) {
     session_registry_init();
     handlers_init(&g_game_manager, &g_matchmaking);
     connection_manager_init(&g_game_manager, &g_matchmaking, &g_running, g_discovery_port);
+    
+    /* Initialize storage */
+    if (storage_init() != SUCCESS) {
+        fprintf(stderr, "Failed to initialize storage\n");
+        return 1;
+    }
     
     printf("✓ Game manager initialized\n");
     printf("✓ Matchmaking initialized\n");
@@ -176,8 +193,8 @@ int main(int argc, char** argv) {
         temp_session.pseudo[MAX_PSEUDO_LEN - 1] = '\0';
         
         /* Create simple session ID */
-        int session_num = (int)(time(NULL) % 10000);
-        snprintf(temp_session.session_id, sizeof(temp_session.session_id), "S%d", session_num);
+        uint32_t h = fnv1a_hash(connect_msg.pseudo);
+        snprintf(temp_session.session_id, sizeof(temp_session.session_id), "S%08x", h);
         temp_session.session_id[sizeof(temp_session.session_id) - 1] = '\0';
         
         session_send_connect_ack(&temp_session, true, "Welcome to Awale!");
@@ -205,6 +222,7 @@ int main(int argc, char** argv) {
     connection_close(&discovery_server);
     game_manager_destroy(&g_game_manager);
     matchmaking_destroy(&g_matchmaking);
+    storage_cleanup();
     
     return 0;
 }

@@ -4,6 +4,7 @@
 
 #include "../../include/server/server_handlers.h"
 #include "../../include/server/server_registry.h"
+#include "../../include/server/matchmaking.h"
 #include "../../include/game/board.h"
 #include "../../include/common/protocol.h"
 #include <stdio.h>
@@ -173,11 +174,36 @@ void handle_play_move(session_t* session, const msg_play_move_t* move) {
         snprintf(result.message, 255, "Move executed: pit %d, captured %d seeds", 
                  move->pit_index, seeds_captured);
         
+        /* Get game instance for statistics updates */
+        game_instance_t* game = game_manager_find_game(g_game_manager, move->game_id);
+        
         /* Check if game is over */
         board_t board;
         if (game_manager_get_board(g_game_manager, move->game_id, &board) == SUCCESS) {
             result.game_over = board_is_game_over(&board);
             result.winner = board_get_winner(&board);
+            
+            /* If game is over, remove it from active games */
+            if (result.game_over && game) {
+                // Update player statistics
+                if (result.winner == (winner_t)PLAYER_A) {
+                    matchmaking_update_player_stats(g_matchmaking, game->player_a, true, board.scores[0]);
+                    matchmaking_update_player_stats(g_matchmaking, game->player_b, false, board.scores[1]);
+                } else if (result.winner == (winner_t)PLAYER_B) {
+                    matchmaking_update_player_stats(g_matchmaking, game->player_a, false, board.scores[0]);
+                    matchmaking_update_player_stats(g_matchmaking, game->player_b, true, board.scores[1]);
+                } else {
+                    // Draw - both get their scores but no win/loss
+                    matchmaking_update_player_stats(g_matchmaking, game->player_a, false, board.scores[0]);
+                    matchmaking_update_player_stats(g_matchmaking, game->player_b, false, board.scores[1]);
+                }
+                
+                game_manager_remove_game(g_game_manager, move->game_id);
+                printf("🏁 Game ended: %s vs %s - Winner: %s\n", 
+                       game->player_a, game->player_b, 
+                       result.winner == (winner_t)PLAYER_A ? game->player_a : 
+                       result.winner == (winner_t)PLAYER_B ? game->player_b : "Draw");
+            }
         } else {
             result.game_over = false;
             result.winner = NO_WINNER;
@@ -332,4 +358,172 @@ void handle_stop_spectate(session_t* session, const char* game_id) {
     } else {
         session_send_error(session, err, "Failed to stop spectating");
     }
+}
+
+/* Handle MSG_SET_BIO */
+void handle_set_bio(session_t* session, const msg_set_bio_t* bio_msg) {
+    if (!bio_msg) {
+        session_send_error(session, ERR_INVALID_PARAM, "Invalid bio data");
+        return;
+    }
+
+    /* Find the player in matchmaking */
+    pthread_mutex_lock(&g_matchmaking->lock);
+    
+    bool found = false;
+    for (int i = 0; i < g_matchmaking->player_count; i++) {
+        if (strcmp(g_matchmaking->players[i].info.pseudo, session->pseudo) == 0) {
+            /* Update bio */
+            g_matchmaking->players[i].info.bio_lines = bio_msg->bio_lines;
+            for (int j = 0; j < bio_msg->bio_lines && j < 10; j++) {
+                strncpy(g_matchmaking->players[i].info.bio[j], bio_msg->bio[j], 255);
+                g_matchmaking->players[i].info.bio[j][255] = '\0';
+            }
+            found = true;
+            break;
+        }
+    }
+    
+    pthread_mutex_unlock(&g_matchmaking->lock);
+
+    if (found) {
+        printf("📝 %s updated their bio (%d lines)\n", session->pseudo, bio_msg->bio_lines);
+        session_send_message(session, MSG_CHALLENGE_SENT, NULL, 0);  /* Reuse as ACK */
+    } else {
+        session_send_error(session, ERR_PLAYER_NOT_FOUND, "Player not found");
+    }
+}
+
+/* Handle MSG_GET_BIO */
+void handle_get_bio(session_t* session, const msg_get_bio_t* bio_req) {
+    if (!bio_req) {
+        session_send_error(session, ERR_INVALID_PARAM, "Invalid bio request");
+        return;
+    }
+
+    msg_bio_response_t response;
+    memset(&response, 0, sizeof(response));
+    snprintf(response.player, MAX_PSEUDO_LEN, "%s", bio_req->target_player);
+    response.player[MAX_PSEUDO_LEN - 1] = '\0';
+
+    /* Find the player */
+    pthread_mutex_lock(&g_matchmaking->lock);
+    
+    bool found = false;
+    for (int i = 0; i < g_matchmaking->player_count; i++) {
+        if (strcmp(g_matchmaking->players[i].info.pseudo, bio_req->target_player) == 0) {
+            response.success = true;
+            response.bio_lines = g_matchmaking->players[i].info.bio_lines;
+            for (int j = 0; j < response.bio_lines && j < 10; j++) {
+                strncpy(response.bio[j], g_matchmaking->players[i].info.bio[j], 255);
+            }
+            found = true;
+            break;
+        }
+    }
+    
+    pthread_mutex_unlock(&g_matchmaking->lock);
+
+    if (!found) {
+        response.success = false;
+        snprintf(response.message, sizeof(response.message), "Player '%s' not found", bio_req->target_player);
+    }
+
+    session_send_message(session, MSG_BIO_RESPONSE, &response, sizeof(response));
+}
+
+/* Handle MSG_GET_PLAYER_STATS */
+void handle_get_player_stats(session_t* session, const msg_get_player_stats_t* stats_req) {
+    if (!stats_req) {
+        session_send_error(session, ERR_INVALID_PARAM, "Invalid stats request");
+        return;
+    }
+
+    msg_player_stats_t response;
+    memset(&response, 0, sizeof(response));
+    snprintf(response.player, MAX_PSEUDO_LEN, "%s", stats_req->target_player);
+    response.player[MAX_PSEUDO_LEN - 1] = '\0';
+
+    /* Get player stats using matchmaking function */
+    player_info_t player_info;
+    error_code_t err = matchmaking_get_player_stats(g_matchmaking, stats_req->target_player, &player_info);
+
+    if (err == SUCCESS) {
+        response.success = true;
+        response.games_played = player_info.games_played;
+        response.games_won = player_info.games_won;
+        response.games_lost = player_info.games_lost;
+        response.total_score = player_info.total_score;
+        response.first_seen = player_info.first_seen;
+        response.last_seen = player_info.last_seen;
+    } else {
+        response.success = false;
+        snprintf(response.message, sizeof(response.message), "Player '%s' not found", stats_req->target_player);
+    }
+
+    session_send_message(session, MSG_PLAYER_STATS, &response, sizeof(response));
+}
+
+/* Handle MSG_SEND_CHAT */
+void handle_send_chat(session_t* session, const msg_send_chat_t* chat_msg) {
+    if (!chat_msg) {
+        session_send_error(session, ERR_INVALID_PARAM, "Invalid chat message");
+        return;
+    }
+
+    /* Validate message length */
+    if (strlen(chat_msg->message) == 0 || strlen(chat_msg->message) >= MAX_CHAT_LEN) {
+        session_send_error(session, ERR_INVALID_PARAM, "Message length must be between 1 and 511 characters");
+        return;
+    }
+
+    /* Check if recipient is specified (private chat) or empty (global chat) */
+    bool is_private = (strlen(chat_msg->recipient) > 0);
+
+    /* Prepare a single chat notification to reuse for sender/recipients */
+    msg_chat_message_t chat_notification;
+    memset(&chat_notification, 0, sizeof(chat_notification));
+
+    if (is_private) {
+        /* Private chat: validate recipient exists */
+        session_t* recipient_session = session_registry_find(chat_msg->recipient);
+        if (!recipient_session) {
+            session_send_error(session, ERR_PLAYER_NOT_FOUND, "Recipient not found or offline");
+            return;
+        }
+
+    /* Send message to recipient */
+    snprintf(chat_notification.sender, MAX_PSEUDO_LEN, "%s", session->pseudo);
+    snprintf(chat_notification.recipient, MAX_PSEUDO_LEN, "%s", chat_msg->recipient);
+    snprintf(chat_notification.message, MAX_CHAT_LEN, "%s", chat_msg->message);
+    chat_notification.timestamp = time(NULL);
+
+    session_send_message(recipient_session, MSG_CHAT_MESSAGE, &chat_notification, sizeof(chat_notification));
+
+        printf("💬 Private chat: %s -> %s\n", session->pseudo, chat_msg->recipient);
+    } else {
+    /* Global chat: send to all online players */
+    snprintf(chat_notification.sender, MAX_PSEUDO_LEN, "%s", session->pseudo);
+    /* recipient remains empty for global chat */
+    snprintf(chat_notification.message, MAX_CHAT_LEN, "%s", chat_msg->message);
+    chat_notification.timestamp = time(NULL);
+
+        /* Send to all online players except sender */
+        pthread_mutex_lock(&g_matchmaking->lock);
+        for (int i = 0; i < g_matchmaking->player_count; i++) {
+            if (strcmp(g_matchmaking->players[i].info.pseudo, session->pseudo) != 0) {
+                session_t* player_session = session_registry_find(g_matchmaking->players[i].info.pseudo);
+                if (player_session) {
+                    session_send_message(player_session, MSG_CHAT_MESSAGE, &chat_notification, sizeof(chat_notification));
+                }
+            }
+        }
+        pthread_mutex_unlock(&g_matchmaking->lock);
+
+        printf("📢 Global chat: %s\n", session->pseudo);
+    }
+
+    /* Send the chat notification back to the sender so their client displays the message
+       via the same MSG_CHAT_MESSAGE handler. */
+    session_send_message(session, MSG_CHAT_MESSAGE, &chat_notification, sizeof(chat_notification));
 }

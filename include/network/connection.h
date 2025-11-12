@@ -53,8 +53,8 @@ typedef struct {
 } select_context_t;
 
 error_code_t select_context_init(select_context_t* ctx, int timeout_sec, int timeout_usec);
-void select_context_add_read(select_context_t* ctx, int fd);
-void select_context_add_write(select_context_t* ctx, int fd);
+error_code_t select_context_add_read(select_context_t* ctx, int fd);
+error_code_t select_context_add_write(select_context_t* ctx, int fd);
 bool select_context_is_readable(select_context_t* ctx, int fd);
 bool select_context_is_writable(select_context_t* ctx, int fd);
 error_code_t select_wait(select_context_t* ctx, int* ready_count);

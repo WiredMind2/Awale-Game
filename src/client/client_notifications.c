@@ -11,6 +11,7 @@
 #include "../../include/common/protocol.h"
 #include "../../include/network/session.h"
 #include <stdio.h>
+#include <string.h>
 #include <pthread.h>
 
 #ifndef MAX_PAYLOAD_SIZE
@@ -91,6 +92,18 @@ void* notification_listener(void* arg) {
             printf("\n\n🏁 ═══════════════════════════════════════════════════\n");
             printf("   GAME OVER!\n");
             printf("   %s\n", game_over->message);
+            printf("═══════════════════════════════════════════════════\n");
+            printf("Your choice: ");
+            fflush(stdout);
+        } else if (type == MSG_CHAT_MESSAGE) {
+            msg_chat_message_t* chat = (msg_chat_message_t*)payload;
+            printf("\n\n💬 ═══════════════════════════════════════════════════\n");
+            if (strlen(chat->recipient) == 0) {
+                printf("   GLOBAL CHAT from %s:\n", chat->sender);
+            } else {
+                printf("   PRIVATE MESSAGE from %s:\n", chat->sender);
+            }
+            printf("   %s\n", chat->message);
             printf("═══════════════════════════════════════════════════\n");
             printf("Your choice: ");
             fflush(stdout);

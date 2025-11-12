@@ -43,4 +43,16 @@ void handle_spectate_game(session_t* session, const char* game_id);
 /* Handle MSG_STOP_SPECTATE - Stop spectating a game */
 void handle_stop_spectate(session_t* session, const char* game_id);
 
+/* Handle MSG_SET_BIO - Set player bio */
+void handle_set_bio(session_t* session, const msg_set_bio_t* bio);
+
+/* Handle MSG_GET_BIO - Get player bio */
+void handle_get_bio(session_t* session, const msg_get_bio_t* bio_req);
+
+/* Handle MSG_GET_PLAYER_STATS - Get player statistics */
+void handle_get_player_stats(session_t* session, const msg_get_player_stats_t* stats_req);
+
+/* Handle MSG_SEND_CHAT - Send chat message */
+void handle_send_chat(session_t* session, const msg_send_chat_t* chat_msg);
+
 #endif /* SERVER_HANDLERS_H */

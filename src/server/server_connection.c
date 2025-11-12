@@ -131,6 +131,30 @@ void* client_handler(void* arg) {
                 break;
             }
             
+            case MSG_SET_BIO: {
+                msg_set_bio_t* bio_msg = (msg_set_bio_t*)payload;
+                handle_set_bio(&session, bio_msg);
+                break;
+            }
+            
+            case MSG_GET_BIO: {
+                msg_get_bio_t* bio_req = (msg_get_bio_t*)payload;
+                handle_get_bio(&session, bio_req);
+                break;
+            }
+            
+            case MSG_GET_PLAYER_STATS: {
+                msg_get_player_stats_t* stats_req = (msg_get_player_stats_t*)payload;
+                handle_get_player_stats(&session, stats_req);
+                break;
+            }
+
+            case MSG_SEND_CHAT: {
+                msg_send_chat_t* chat_msg = (msg_send_chat_t*)payload;
+                handle_send_chat(&session, chat_msg);
+                break;
+            }
+
             case MSG_DISCONNECT:
                 printf("Client %s requested disconnect\n", session.pseudo);
                 goto cleanup;

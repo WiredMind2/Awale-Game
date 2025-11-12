@@ -18,6 +18,6 @@ const char* error_to_string(error_code_t err) {
         case ERR_MAX_CAPACITY: return "Maximum capacity reached";
         case ERR_DUPLICATE: return "Duplicate entry";
         case ERR_TIMEOUT: return "Connection timeout";
-        default: return "Unknown error";
+        default: return NULL;
     }
 }

@@ -50,11 +50,10 @@ int main(int argc, char** argv) {
         break;
     }
     if (!pseudo) {
-        printf("Il manque le pseudo. Usage: %s <pseudo> [-s server_ip]\n", argv[0]);
+        printf("❌ Missing pseudo. Usage: %s <pseudo> [-s server_ip]\n", argv[0]);
         return 1;
     }
-
-
+    
     print_banner();
     client_state_set_pseudo(pseudo);
     printf("Player: %s\n", client_state_get_pseudo());
@@ -89,15 +88,19 @@ int main(int argc, char** argv) {
             case 1: cmd_list_players(); break;
             case 2: cmd_challenge_player(); break;
             case 3: cmd_view_challenges(); break;
-            case 4:
+            case 4: cmd_set_bio(); break;
+            case 5: cmd_view_bio(); break;
+            case 6: cmd_view_player_stats(); break;
+            case 7:
                 printf("\nDisconnecting...\n");
                 session_send_message(&g_session, MSG_DISCONNECT, NULL, 0);
                 client_state_set_running(false);
                 break;
-            case 5: cmd_play_mode(); break;
-            case 6: cmd_spectator_mode(); break;
+            case 8: cmd_play_mode(); break;
+            case 9: cmd_chat(); break;
+            case 10: cmd_spectator_mode(); break;
             default:
-                printf("Invalid choice. Please select 1-6.\n");
+                printf("Invalid choice. Please select 1-10.\n");
                 break;
         }
     }

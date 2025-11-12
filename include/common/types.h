@@ -3,11 +3,13 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#include <time.h> // For time_t
 
 /* Constants */
 #define MAX_PSEUDO_LEN 100
 #define MAX_GAME_ID_LEN 256
 #define MAX_IP_LEN 46  /* IPv6 max length */
+#define MAX_CHAT_LEN 512
 #define NUM_PITS 12
 #define PITS_PER_PLAYER 6
 #define INITIAL_SEEDS_PER_PIT 4
@@ -60,6 +62,16 @@ typedef enum {
 typedef struct {
     char pseudo[MAX_PSEUDO_LEN];
     char ip[MAX_IP_LEN];
+    /* Statistics */
+    int games_played;
+    int games_won;
+    int games_lost;
+    int total_score;
+    time_t first_seen;
+    time_t last_seen;
+    /* Bio (10 lines of 256 characters each) */
+    char bio[10][256];
+    int bio_lines;
 } player_info_t;
 
 /* Utility macros */

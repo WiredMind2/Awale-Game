@@ -25,10 +25,13 @@ const char* message_type_to_string(message_type_t type) {
         case MSG_BOARD_STATE: return "BOARD_STATE";
         case MSG_GAME_OVER: return "GAME_OVER";
         case MSG_CHALLENGE_LIST: return "CHALLENGE_LIST";
-        default: return "INVALID";
+        case MSG_SEND_CHAT: return "SEND_CHAT";
+        case MSG_CHAT_MESSAGE: return "CHAT_MESSAGE";
+        case MSG_CHAT_HISTORY: return "CHAT_HISTORY";
+        default: return NULL;
     }
 }
 
 bool is_valid_message_type(message_type_t type) {
-    return type > MSG_UNKNOWN && type <= MSG_CHALLENGE_LIST;
+    return type > MSG_UNKNOWN && type <= MSG_CHAT_HISTORY;
 }

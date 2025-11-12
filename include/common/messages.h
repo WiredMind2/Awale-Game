@@ -146,4 +146,63 @@ typedef struct {
     char game_id[MAX_GAME_ID_LEN];
 } msg_spectator_joined_t;
 
+/* MSG_SET_BIO */
+typedef struct {
+    char bio[10][256];  /* 10 lines of 256 characters each */
+    int bio_lines;
+} msg_set_bio_t;
+
+/* MSG_GET_BIO */
+typedef struct {
+    char target_player[MAX_PSEUDO_LEN];
+} msg_get_bio_t;
+
+/* MSG_BIO_RESPONSE */
+typedef struct {
+    bool success;
+    char player[MAX_PSEUDO_LEN];
+    char bio[10][256];
+    int bio_lines;
+    char message[256];  /* Error message if success=false */
+} msg_bio_response_t;
+
+/* MSG_GET_PLAYER_STATS */
+typedef struct {
+    char target_player[MAX_PSEUDO_LEN];
+} msg_get_player_stats_t;
+
+/* MSG_PLAYER_STATS */
+typedef struct {
+    bool success;
+    char player[MAX_PSEUDO_LEN];
+    int games_played;
+    int games_won;
+    int games_lost;
+    int total_score;
+    time_t first_seen;
+    time_t last_seen;
+    char message[256];  /* Error message if success=false */
+} msg_player_stats_t;
+
+/* MSG_SEND_CHAT */
+typedef struct {
+    char recipient[MAX_PSEUDO_LEN];  /* Empty for global chat */
+    char message[MAX_CHAT_LEN];
+} msg_send_chat_t;
+
+/* MSG_CHAT_MESSAGE */
+typedef struct {
+    char sender[MAX_PSEUDO_LEN];
+    char recipient[MAX_PSEUDO_LEN];  /* Empty for global chat */
+    char message[MAX_CHAT_LEN];
+    time_t timestamp;
+} msg_chat_message_t;
+
+/* MSG_CHAT_HISTORY */
+typedef struct {
+    char target_player[MAX_PSEUDO_LEN];  /* Empty for global history */
+    int count;
+    msg_chat_message_t messages[50];  /* Max 50 messages */
+} msg_chat_history_t;
+
 #endif /* MESSAGES_H */

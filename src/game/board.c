@@ -64,12 +64,20 @@ winner_t board_get_winner(const board_t* board) {
         return NO_WINNER;
     }
     
-    if (board->scores[0] > board->scores[1]) {
+    /* When the game ends due to starvation (one side empty), the remaining
+     * seeds on the board belong to the side that still has seeds. To decide
+     * the winner consistently we compute the final totals as current score
+     * plus remaining seeds on each player's side, without mutating the
+     * board. */
+    int total_a = board->scores[0] + board_get_side_seeds(board, PLAYER_A);
+    int total_b = board->scores[1] + board_get_side_seeds(board, PLAYER_B);
+
+    if (total_a > total_b) {
         return WINNER_A;
-    } else if (board->scores[1] > board->scores[0]) {
+    } else if (total_b > total_a) {
         return WINNER_B;
     } else {
-        return DRAW;
+        return NO_WINNER;
     }
 }
 
@@ -132,20 +140,9 @@ error_code_t board_execute_move(board_t* board, player_id_t player, int pit_inde
     *seeds_captured = rules_capture_seeds(board, last_pit, player);
     board->scores[player] += *seeds_captured;
     
-    // Check if opponent is starved and award remaining seeds to current player
-    player_id_t opponent = (player == PLAYER_A) ? PLAYER_B : PLAYER_A;
-    if (board_is_side_empty(board, opponent)) {
-        int remaining = board_get_side_seeds(board, player);
-        if (remaining > 0) {
-            board->scores[player] += remaining;
-            // Clear the player's side
-            int start = board_get_pit_start(player);
-            int end = board_get_pit_end(player);
-            for (int i = start; i <= end; i++) {
-                board->pits[i] = 0;
-            }
-        }
-    }
+    // Note: Do NOT automatically award remaining seeds to the mover when the
+    // opponent side becomes empty after this move. Awarding remaining seeds is
+    // handled by end-of-game logic (both sides empty or explicit game end).
     
     // Check for game over
     if (board->scores[0] >= WIN_SCORE || board->scores[1] >= WIN_SCORE) {

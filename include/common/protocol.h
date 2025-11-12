@@ -24,10 +24,16 @@ typedef enum {
     MSG_PLAY_MOVE,
     MSG_GET_BOARD,
     MSG_SURRENDER,
-    MSG_LIST_GAMES,           /* List all ongoing games */
+    MSG_LIST_GAMES,            /* List all ongoing games */
     MSG_SPECTATE_GAME,        /* Start spectating a game */
     MSG_STOP_SPECTATE,        /* Stop spectating */
-    
+    MSG_SET_BIO,              /* Set player bio */
+    MSG_GET_BIO,              /* Get player bio */
+    MSG_GET_PLAYER_STATS,     /* Get player statistics */
+    MSG_SEND_CHAT,            /* Send chat message */
+    MSG_CHAT_MESSAGE,         /* Receive chat message */
+    MSG_CHAT_HISTORY,         /* Get chat history */
+
     /* Server responses */
     MSG_CONNECT_ACK,
     MSG_ERROR,
@@ -41,7 +47,9 @@ typedef enum {
     MSG_CHALLENGE_LIST,
     MSG_GAME_LIST,            /* List of ongoing games */
     MSG_SPECTATE_ACK,         /* Confirmation of spectate start */
-    MSG_SPECTATOR_JOINED      /* Notify players/spectators of new spectator */
+    MSG_SPECTATOR_JOINED,     /* Notify players/spectators of new spectator */
+    MSG_BIO_RESPONSE,         /* Bio data response */
+    MSG_PLAYER_STATS          /* Player statistics response */
 } message_type_t;
 
 /* Message header (fixed size for easy parsing) */
