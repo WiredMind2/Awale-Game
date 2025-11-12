@@ -274,8 +274,20 @@ int main(int argc, char** argv) {
         }
         
         connect_msg.pseudo[MAX_PSEUDO_LEN - 1] = '\0';
-        
-        printf("📥 Connection from %s (%s)\n", connect_msg.pseudo, client_ip);
+        msg_player_list_t list;
+        int count;
+        error_code_t err = matchmaking_get_players(&g_matchmaking, list.players, 100, &count);
+        if (err == SUCCESS) {
+            list.count = count;
+        /* Calculate actual size: count field + only the actual number of players */
+        size_t actual_size = sizeof(list.count) + (count * sizeof(player_info_t));
+        for (int i = 0; i < count; i++) {
+            if (strcmp(connect_msg.pseudo, list.players[i].pseudo) == 0) {
+                connection_close(&client_conn);
+                continue;
+            }
+        }
+        printf("Connection from %s (%s)\n", connect_msg.pseudo, client_ip);
         
         /* Add to matchmaking */
         if (matchmaking_add_player(&g_matchmaking, connect_msg.pseudo, client_ip) != SUCCESS) {

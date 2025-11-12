@@ -50,10 +50,11 @@ int main(int argc, char** argv) {
         break;
     }
     if (!pseudo) {
-        printf("❌ Missing pseudo. Usage: %s <pseudo> [-s server_ip]\n", argv[0]);
+        printf("Il manque le pseudo. Usage: %s <pseudo> [-s server_ip]\n", argv[0]);
         return 1;
     }
-    
+
+
     print_banner();
     client_state_set_pseudo(pseudo);
     printf("Player: %s\n", client_state_get_pseudo());
