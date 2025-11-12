@@ -11,16 +11,16 @@ The Awale client-server system now uses **automatic network discovery** via UDP 
 - Server responds with its IP and discovery port
 - **No manual IP configuration needed!**
 
-### Peer-to-Peer Port Negotiation
-- Client finds a free port and tells server: "I'm listening on port X"
-- Server finds a free port and tells client: "I'm listening on port Y"
-- **Each side controls its own listening port**
+### Single-Socket Direct Connection
+- Client connects directly to server's discovery port (TCP 12345)
+- **One socket handles all bidirectional communication**
+- **No port negotiation or back-connections needed**
+- **NAT/firewall friendly**
 
 ### Bidirectional Communication
-- Client writes to server's port (client's write socket)
-- Server writes to client's port (server's write socket)
-- Each reads from their own listening port
-- **True full-duplex communication**
+- Single TCP socket for both reading and writing
+- **Simplified connection management**
+- **Cross-platform compatible**
 
 ## 🔄 Connection Flow
 
@@ -37,23 +37,15 @@ CLIENT                                SERVER
   │  3. TCP Connect to discovery port   │
   ├─────────────────────────────────────>│ (port 12345)
   │                                     │
-  │  4. "I'm listening on port 54321"   │
+  │  4. Send MSG_CONNECT                │
   ├─────────────────────────────────────>│
   │                                     │
-  │  5. "I'm listening on port 54322"   │
+  │  5. Receive MSG_CONNECT_ACK         │
   │<─────────────────────────────────────┤
   │                                     │
-  │  6. Close discovery connection      │
-  ├─────────────────────────────────────┤
+  │  ✓ Single-socket bidirectional      │
+  │    connection established           │
   │                                     │
-  │  7. Server connects to 54321 ───────>│
-  │     (client's read socket)          │
-  │                                     │
-  │  8. Client connects to 54322 ───────>│
-  │     (server's read socket)          │
-  │                                     │
-  │  9. Bidirectional communication     │
-  │<═══════════════════════════════════>│
 ```
 
 ## 📦 New Functions
