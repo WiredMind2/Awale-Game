@@ -4,7 +4,7 @@
 
 The Awale client-server system now uses **automatic network discovery** via UDP broadcast, eliminating the need for manual IP address configuration.
 
-## 🎯 Key Features
+## Key Features
 
 ### Automatic Server Discovery
 - Client broadcasts discovery request on local network (UDP port 12346)
@@ -152,9 +152,9 @@ make run-server
 ╚══════════════════════════════════════════════════════╝
 Discovery Port: 12345 (TCP)
 Broadcast Port: 12346 (UDP)
-✓ UDP broadcast discovery listening on port 12346
-✓ Discovery server listening on port 12345
-🎮 Server ready! Waiting for connections...
+UDP broadcast discovery listening on port 12346
+Discovery server listening on port 12345
+Server ready! Waiting for connections...
 ```
 
 ### Client
@@ -170,8 +170,8 @@ make run-client PSEUDO=Alice
 ```
 Player: Alice
 🔍 Broadcasting discovery request on local network...
-✓ Server discovered at 192.168.1.100:12345
-✓ Connected to server
+Server discovered at 192.168.1.100:12345
+Connected to server
    Client will listen on port: 54321
    Server listening on port: 54322
    Connected to server's port

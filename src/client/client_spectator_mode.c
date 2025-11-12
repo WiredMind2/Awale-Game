@@ -17,14 +17,14 @@
 #include <sys/select.h>
 
 void cmd_spectator_mode(void) {
-    printf("\n👁️ ═══════════════════════════════════════════════════\n");
+    printf("\n=== SPECTATOR MODE ===\n");
     printf("   SPECTATOR MODE\n");
     printf("═══════════════════════════════════════════════════════\n\n");
     
     /* Request list of active games */
     error_code_t err = session_send_message(client_state_get_session(), MSG_LIST_GAMES, NULL, 0);
     if (err != SUCCESS) {
-        printf("❌ Failed to request game list\n");
+    printf("Failed to request game list\n");
         return;
     }
     
@@ -37,12 +37,12 @@ void cmd_spectator_mode(void) {
                                        sizeof(game_list), &size, 5000);
     
     if (err == ERR_TIMEOUT) {
-        printf("❌ Timeout waiting for game list\n");
+    printf("Timeout waiting for game list\n");
         return;
     }
     
     if (err != SUCCESS || type != MSG_GAME_LIST) {
-        printf("❌ Failed to receive game list\n");
+    printf("Failed to receive game list\n");
         return;
     }
     
@@ -72,7 +72,7 @@ void cmd_spectator_mode(void) {
     int choice;
     if (scanf("%d", &choice) != 1) {
         clear_input();
-        printf("❌ Invalid input\n");
+    printf("Invalid input\n");
         return;
     }
     clear_input();
@@ -83,7 +83,7 @@ void cmd_spectator_mode(void) {
     }
     
     if (choice < 1 || choice > game_list.count) {
-        printf("❌ Invalid game selection\n");
+    printf("Invalid game selection\n");
         return;
     }
     
@@ -95,7 +95,7 @@ void cmd_spectator_mode(void) {
     
     err = session_send_message(client_state_get_session(), MSG_SPECTATE_GAME, &spectate_req, sizeof(spectate_req));
     if (err != SUCCESS) {
-        printf("❌ Failed to send spectate request\n");
+    printf("Failed to send spectate request\n");
         return;
     }
     
@@ -105,27 +105,27 @@ void cmd_spectator_mode(void) {
                                        sizeof(ack), &size, 5000);
     
     if (err == ERR_TIMEOUT) {
-        printf("❌ Timeout waiting for spectate acknowledgment\n");
+    printf("Timeout waiting for spectate acknowledgment\n");
         return;
     }
     
     if (err != SUCCESS || type != MSG_SPECTATE_ACK) {
-        printf("❌ Failed to receive spectate acknowledgment\n");
+    printf("Failed to receive spectate acknowledgment\n");
         return;
     }
     
     if (!ack.success) {
-        printf("❌ Spectate request denied: %s\n", ack.message);
+    printf("Spectate request denied: %s\n", ack.message);
         return;
     }
     
-    printf("✓ %s\n", ack.message);
+    printf("%s\n", ack.message);
     
     /* Set spectator state */
     spectator_state_set(selected_game->game_id, selected_game->player_a, selected_game->player_b);
     
     /* Spectator loop */
-    printf("\n🎮 ═══════════════════════════════════════════════════\n");
+    printf("\n=== GAME ===\n");
     printf("   NOW SPECTATING: %s vs %s\n", selected_game->player_a, selected_game->player_b);
     printf("═══════════════════════════════════════════════════════\n");
     printf("\nCommands:\n");
@@ -209,7 +209,7 @@ void cmd_spectator_mode(void) {
                     printf("Current turn: %s\n", current_str);
                     printf("\n");
                 } else {
-                    printf("❌ Failed to refresh board\n");
+                    printf("Failed to refresh board\n");
                 }
             }
         }
@@ -218,7 +218,7 @@ void cmd_spectator_mode(void) {
         if (spectator_state_check_and_clear_updated()) {
             
             /* Auto-refresh board */
-            printf("\n🔔 Board updated! Refreshing...\n");
+            printf("\nBoard updated! Refreshing...\n");
             session_send_message(client_state_get_session(), MSG_GET_BOARD, &board_req, sizeof(board_req));
             
             err = session_recv_message_timeout(client_state_get_session(), &type, (char*)&board_state, 
@@ -252,5 +252,5 @@ void cmd_spectator_mode(void) {
     /* Clear spectator state */
     spectator_state_clear();
     
-    printf("\n👋 Stopped spectating.\n");
+    printf("\nStopped spectating.\n");
 }

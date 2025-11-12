@@ -1,19 +1,19 @@
 # Event-Driven Play Mode Architecture
 
-## 🎯 Overview
+## Overview
 
 The play mode has been completely refactored from a **linear polling-based design** to a **robust event-driven state machine** that:
 
-- ✅ **Single polling point** - All events (user input + server notifications) handled in one place
-- ✅ **Server is authoritative** - Client always adjusts to server's game state
-- ✅ **Never buffers user input** - Always drains stdin to prevent state confusion
-- ✅ **Priority to user input** - Processes all user commands before server events
-- ✅ **Recovers from missed packets** - State machine can resync at any point
-- ✅ **No regular polling** - Only updates after actual events occur
+- **Single polling point** - All events (user input + server notifications) handled in one place
+- **Server is authoritative** - Client always adjusts to server's game state
+- **Never buffers user input** - Always drains stdin to prevent state confusion
+- **Priority to user input** - Processes all user commands before server events
+- **Recovers from missed packets** - State machine can resync at any point
+- **No regular polling** - Only updates after actual events occur
 
 ---
 
-## 📊 State Machine
+## State Machine
 
 ### **States**
 
@@ -63,7 +63,7 @@ STATE_EXIT              → User wants to leave
 
 ---
 
-## ⚙️ Event Loop Architecture
+## Event Loop Architecture
 
 ### **Single Polling Point**
 
@@ -187,7 +187,7 @@ if (event == EVENT_USER_INPUT) {
     if (input[0] == 'm') {
         state = STATE_EXIT;  // User wants menu - allow it
     } else {
-        printf("⚠️ Not your turn\n");  // Discard invalid input
+    printf("Not your turn\n");  // Discard invalid input
     }
 }
 ```
@@ -236,7 +236,7 @@ case STATE_MOVE_SENT:
     if (event == EVENT_TIMEOUT) {
         // Didn't get notification - just fetch board
         // Server will tell us the TRUE state
-        printf("⚠️ Move response timeout - refreshing board\n");
+    printf("Move response timeout - refreshing board\n");
         should_request_board = true;
         state = STATE_INIT;
     }
@@ -316,7 +316,7 @@ if (FD_ISSET(notification_fd)) {
 
 ---
 
-## 🔍 Comparison: Old vs New
+## Comparison: Old vs New
 
 | Aspect | Old Design | New Design |
 |--------|------------|------------|
@@ -332,7 +332,7 @@ if (FD_ISSET(notification_fd)) {
 
 ---
 
-## 📝 Code Structure
+## Code Structure
 
 ### **Helper Functions**
 
@@ -378,7 +378,7 @@ void cmd_play_mode(void) {
 
 ---
 
-## 🎯 Benefits
+## Benefits
 
 1. **Robustness**: Recovers from any network issue or missed packet
 2. **Responsiveness**: User input processed instantly, no blocking
@@ -389,7 +389,7 @@ void cmd_play_mode(void) {
 
 ---
 
-## 🚀 Future Enhancements
+## Future Enhancements
 
 The state machine architecture makes these features easy to add:
 
@@ -404,4 +404,4 @@ The state machine architecture makes these features easy to add:
 **Document Version:** 1.0  
 **Date:** 2025-01-30  
 **Status:** Implemented and Tested  
-**All Tests Passing:** ✅ 33/33
+**All Tests Passing:** 33/33

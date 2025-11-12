@@ -190,7 +190,7 @@ Test files are in `tests/`:
 - `test_network.c` - Message serialization, connection management, protocol handling
 
 ### Manual Testing (Avoid if Possible)
-**⚠️ Note**: Manual testing requires multiple terminals and is difficult for AI agents to coordinate. Use automated tests instead.
+**Note**: Manual testing requires multiple terminals and is difficult for AI agents to coordinate. Use automated tests instead.
 
 If manual testing is absolutely necessary:
 ```bash

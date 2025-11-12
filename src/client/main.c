@@ -176,7 +176,7 @@ static error_code_t establish_connection(const char* pseudo, const char* server_
         return ERR_NETWORK_ERROR;
     }
     
-    printf("✓ %s\n", ack.message);
+    printf("%s\n", ack.message);
     snprintf(session->session_id, sizeof(session->session_id), "%s", ack.session_id);
     session->authenticated = true;
     

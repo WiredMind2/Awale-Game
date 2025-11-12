@@ -1,8 +1,8 @@
 # Comprehensive Freeze Analysis & Fixes
 
-## 🔍 IDENTIFIED FREEZE SCENARIOS
+## IDENTIFIED FREEZE SCENARIOS
 
-### ❌ **ISSUE #1: Invalid Move Race Condition (FIXED)**
+### ISSUE #1: Invalid Move Race Condition (FIXED)
 
 **Severity:** CRITICAL - Causes freeze on every invalid move attempt
 
@@ -44,9 +44,9 @@ FD_SET(notification_fd, &readfds);
 int ready = select(notification_fd + 1, &readfds, NULL, NULL, &tv);
 if (ready > 0) {
     active_games_clear_notifications();  // Clear pipe AND flag
-    printf("✓ Move processed\n");
+    printf("Move processed\n");
 } else if (ready == 0) {
-    printf("⚠️ Timeout\n");
+    printf("Timeout\n");
 }
 
 // Small delay for notification listener to finish
@@ -58,7 +58,7 @@ nanosleep(&ts, NULL);
 
 ---
 
-### ❌ **ISSUE #2: Board Fetch Indefinite Block (FIXED)**
+### ISSUE #2: Board Fetch Indefinite Block (FIXED)
 
 **Severity:** HIGH - Causes permanent freeze if message lost
 
@@ -86,12 +86,12 @@ err = session_recv_message_timeout(client_state_get_session(),
                                    &type, &board, sizeof(board), 
                                    &size, 5000);  // 5 second timeout
 if (err == ERR_TIMEOUT) {
-    printf("⚠️ Timeout waiting for board state - retrying...\n");
+    printf("Timeout waiting for board state - retrying...\n");
     sleep(1);
     continue;  // Retry loop
 }
 if (err != SUCCESS || type != MSG_BOARD_STATE) {
-    printf("❌ Error receiving board: %s (type=%d, expected=%d)\n",
+    printf("Error receiving board: %s (type=%d, expected=%d)\n",
            error_to_string(err), type, MSG_BOARD_STATE);
     sleep(2);
     continue;
@@ -102,7 +102,7 @@ if (err != SUCCESS || type != MSG_BOARD_STATE) {
 
 ---
 
-### ⚠️ **ISSUE #3: Notification Listener Consuming Response Messages**
+### ISSUE #3: Notification Listener Consuming Response Messages
 
 **Severity:** HIGH - Causes intermittent freezes
 
@@ -122,7 +122,7 @@ if (err != SUCCESS || type != MSG_BOARD_STATE) {
 - `MSG_GAME_CREATED` (game creation confirmations)
 - Any non-notification message
 
-**Current Status:** ⚠️ **PARTIALLY MITIGATED**
+**Current Status:** PARTIALLY MITIGATED
 - Issue #1 fix (waiting for notification) reduces probability
 - Issue #2 fix (timeout on board fetch) prevents infinite freeze
 - **Still possible:** Listener can consume responses, causing timeouts
@@ -144,7 +144,7 @@ if (type == MSG_BOARD_STATE || type == MSG_PLAYER_LIST || /* other responses */)
 
 ---
 
-### ⚠️ **ISSUE #4: Multiple Concurrent Board Requests**
+### ISSUE #4: Multiple Concurrent Board Requests
 
 **Severity:** MEDIUM - Causes out-of-order message confusion
 
@@ -169,7 +169,7 @@ while (playing) {
 6. Messages might arrive out of order
 7. Client receives wrong board state for current request
 
-**Current Status:** ⚠️ **LOW PROBABILITY**
+**Current Status:** LOW PROBABILITY
 - Requires very fast user input (unlikely)
 - Server responds quickly (usually faster than user input)
 - Issue #2 fix (timeout) will at least recover from confusion
@@ -190,7 +190,7 @@ board_request_pending = false;
 
 ---
 
-### ⚠️ **ISSUE #5: Notification Pipe Buffer Overflow**
+### ISSUE #5: Notification Pipe Buffer Overflow
 
 **Severity:** LOW - Causes deadlock under extreme conditions
 
@@ -213,7 +213,7 @@ board_request_pending = false;
 6. Notification listener thread **hangs**
 7. No more notifications processed → system deadlock
 
-**Current Status:** ⚠️ **EXTREMELY LOW PROBABILITY**
+**Current Status:** EXTREMELY LOW PROBABILITY
 - Would require ~65,000 unprocessed notifications
 - Play mode drains pipe every loop iteration
 - Issue #1 fix ensures pipe is drained after each move
@@ -225,7 +225,7 @@ board_request_pending = false;
 
 ---
 
-### ⚠️ **ISSUE #6: Sleep Calls Block Exit**
+### ISSUE #6: Sleep Calls Block Exit
 
 **Severity:** LOW - Annoyance, not freeze
 
@@ -241,22 +241,22 @@ sleep(2);  // Cannot be interrupted by user input
 - Must wait for `sleep()` to complete
 - Not a freeze, but feels like one
 
-**Current Status:** ✅ **ACCEPTABLE**
+**Current Status:** ACCEPTABLE
 - Sleep durations are short (1-2 seconds max)
 - Used only for error recovery or rate limiting
 - Could use `nanosleep()` with signal handling if needed
 
 ---
 
-## 📊 SUMMARY TABLE
+## SUMMARY TABLE
 
 | Issue | Severity | Fixed | Remaining Work |
 |-------|----------|-------|----------------|
-| #1: Invalid Move Race | CRITICAL | ✅ YES | None - fully resolved |
-| #2: Board Fetch Timeout | HIGH | ✅ YES | None - fully resolved |
-| #3: Listener Consumes Responses | HIGH | ⚠️ MITIGATED | Architectural fix needed |
-| #4: Concurrent Board Requests | MEDIUM | ❌ NO | Add request flag |
-| #5: Pipe Buffer Overflow | LOW | ⚠️ UNLIKELY | Already mitigated |
+| #1: Invalid Move Race | CRITICAL | YES | None - fully resolved |
+| #2: Board Fetch Timeout | HIGH | YES | None - fully resolved |
+| #3: Listener Consumes Responses | HIGH | MITIGATED | Architectural fix needed |
+| #4: Concurrent Board Requests | MEDIUM | NO | Add request flag |
+| #5: Pipe Buffer Overflow | LOW | UNLIKELY | Already mitigated |
 | #6: Sleep Blocks Exit | LOW | ❌ NO | Not worth fixing |
 
 ---

@@ -1,10 +1,10 @@
 # Network Error Handling - Comprehensive Guide
 
-## 🎯 Overview
+## Overview
 
 This document describes the comprehensive network error handling mechanisms implemented in the Awale game to eliminate freezing, detect broken connections early, and provide graceful recovery from all network failures.
 
-## 🛡️ Key Improvements
+## Key Improvements
 
 ### 1. **TCP Keepalive for Early Detection**
 
@@ -176,12 +176,12 @@ void* notification_listener(void* arg) {
             
             if (err == ERR_NETWORK_ERROR) {
                 // Fatal error - connection lost
-                printf("❌ Connection lost - server disconnected\n");
+                printf("Connection lost - server disconnected\n");
                 break;
             }
             
             if (consecutive_errors >= MAX_CONSECUTIVE_ERRORS) {
-                printf("❌ Too many consecutive errors - disconnecting\n");
+                printf("Too many consecutive errors - disconnecting\n");
                 break;
             }
             
@@ -220,9 +220,9 @@ static error_code_t request_board(const char* player_a, const char* player_b) {
     error_code_t err = session_send_message(...);
     
     if (err == ERR_NETWORK_ERROR) {
-        printf("❌ Failed to send board request - connection lost\n");
+    printf("Failed to send board request - connection lost\n");
     } else if (err == ERR_TIMEOUT) {
-        printf("⚠️  Network slow - request timeout\n");
+    printf("Network slow - request timeout\n");
     }
     
     return err;
@@ -241,16 +241,16 @@ static error_code_t receive_board(msg_board_state_t* board) {
         if (err == ERR_TIMEOUT) {
             retries++;
             if (retries <= MAX_RETRIES) {
-                printf("⚠️  Server response timeout (attempt %d/%d) - retrying...\n", 
+                printf("Server response timeout (attempt %d/%d) - retrying...\n", 
                        retries, MAX_RETRIES + 1);
                 continue;
             }
-            printf("❌ Server not responding after %d attempts\n", MAX_RETRIES + 1);
+            printf("Server not responding after %d attempts\n", MAX_RETRIES + 1);
             return err;
         }
         
         if (err == ERR_NETWORK_ERROR) {
-            printf("❌ Connection lost - please restart client\n");
+            printf("Connection lost - please restart client\n");
             return err;  // Fatal - don't retry
         }
         
@@ -281,7 +281,7 @@ void* client_handler(void* arg) {
         time_t now = time(NULL);
         if (now - last_check >= CHECK_INTERVAL) {
             if (connection_check_alive(&session.conn) != SUCCESS) {
-                printf("⚠️ Client %s connection check failed - disconnecting\n", 
+                printf("Client %s connection check failed - disconnecting\n", 
                        session.pseudo);
                 break;
             }
@@ -330,7 +330,7 @@ cleanup:
 
 ---
 
-## 🔍 Error Code Distinctions
+## Error Code Distinctions
 
 ### `ERR_TIMEOUT`
 **Meaning:** Operation timed out waiting for peer response.
@@ -361,7 +361,7 @@ cleanup:
 
 ---
 
-## 📊 Timeout Values
+## Timeout Values
 
 | Operation | Timeout | Rationale |
 |-----------|---------|-----------|
@@ -375,9 +375,9 @@ cleanup:
 
 ---
 
-## 🎯 Testing Scenarios
+## Testing Scenarios
 
-### ✅ Scenario 1: Client Crashes
+### Scenario 1: Client Crashes
 **What happens:**
 1. Client process killed
 2. TCP connection closed immediately
@@ -389,7 +389,7 @@ cleanup:
 
 ---
 
-### ✅ Scenario 2: Network Cable Unplugged
+### Scenario 2: Network Cable Unplugged
 **What happens:**
 1. TCP connection remains "established" (no RST)
 2. Next `send()`/`recv()` blocks indefinitely
@@ -402,7 +402,7 @@ cleanup:
 
 ---
 
-### ✅ Scenario 3: Slow Network (High Latency)
+### Scenario 3: Slow Network (High Latency)
 **What happens:**
 1. `send()` completes (data in local buffer)
 2. `recv()` blocks waiting for response
@@ -415,7 +415,7 @@ cleanup:
 
 ---
 
-### ✅ Scenario 4: Peer Stops Reading (TCP Buffer Full)
+### Scenario 4: Peer Stops Reading (TCP Buffer Full)
 **What happens:**
 1. `send()` blocks (TCP buffer full)
 2. `select()` waits for writability with 5s timeout
@@ -427,7 +427,7 @@ cleanup:
 
 ---
 
-### ✅ Scenario 5: Rapid Network Errors (Flaky Connection)
+### Scenario 5: Rapid Network Errors (Flaky Connection)
 **What happens:**
 1. Multiple consecutive `recv()` errors
 2. Notification listener counts consecutive errors
@@ -438,7 +438,7 @@ cleanup:
 
 ---
 
-## 🔧 API Reference
+## API Reference
 
 ### Connection Layer
 
@@ -479,7 +479,7 @@ bool session_is_active(const session_t* session);
 
 ---
 
-## 📝 Best Practices
+## Best Practices
 
 ### For Application Code
 
@@ -511,8 +511,8 @@ bool session_is_active(const session_t* session);
 
 4. **Provide user feedback on errors**
    ```c
-   printf("⚠️  Server response timeout - retrying...\n");
-   printf("❌ Connection lost - please restart client\n");
+    printf("Server response timeout - retrying...\n");
+    printf("Connection lost - please restart client\n");
    ```
 
 5. **Clean up on exit**
@@ -525,7 +525,7 @@ bool session_is_active(const session_t* session);
 
 ---
 
-## 🚀 Performance Impact
+## Performance Impact
 
 ### TCP Keepalive
 - **Overhead:** Negligible (<1% CPU)
@@ -544,7 +544,7 @@ bool session_is_active(const session_t* session);
 
 ---
 
-## ✅ Verification
+## Verification
 
 ### Build and Test
 ```bash
@@ -560,7 +560,7 @@ make test
 
 ---
 
-## 📚 Related Documents
+## Related Documents
 
 - `FREEZE_ANALYSIS.md` - Original freeze issues and partial fixes
 - `EVENT_DRIVEN_ARCHITECTURE.md` - Play mode state machine architecture

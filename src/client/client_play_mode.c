@@ -167,7 +167,7 @@ static void display_board(const msg_board_state_t* board, player_id_t my_side) {
         int start_pit = (my_side == PLAYER_A) ? 0 : 6;
         int end_pit = (my_side == PLAYER_A) ? 5 : 11;
         
-        printf("\n🎯 YOUR TURN!\n");
+    printf("\nYOUR TURN!\n");
         printf("   Legal moves: ");
         
         bool has_legal_move = false;
@@ -222,7 +222,7 @@ static void handle_user_input(play_state_t* state, const msg_board_state_t* boar
         case STATE_IDLE:
             if (board->current_player != my_side) {
                 /* Not our turn - ignore pit numbers */
-                printf("⚠️  Not your turn - waiting for opponent\n");
+                printf("Not your turn - waiting for opponent\n");
                 printf("> ");
                 fflush(stdout);
                 return;
@@ -235,14 +235,14 @@ static void handle_user_input(play_state_t* state, const msg_board_state_t* boar
             
             /* Validate pit */
             if (pit < start_pit || pit > end_pit) {
-                printf("❌ Invalid pit! Choose from %d-%d\n", start_pit, end_pit);
+                printf("Invalid pit! Choose from %d-%d\n", start_pit, end_pit);
                 printf("\nEnter pit number or 'm' for menu: ");
                 fflush(stdout);
                 return;
             }
             
             if (board->pits[pit] == 0) {
-                printf("❌ That pit is empty!\n");
+                printf("That pit is empty!\n");
                 printf("\nEnter pit number or 'm' for menu: ");
                 fflush(stdout);
                 return;
@@ -258,7 +258,7 @@ static void handle_user_input(play_state_t* state, const msg_board_state_t* boar
             error_code_t err = session_send_message(client_state_get_session(), MSG_PLAY_MOVE, 
                                                     &move, sizeof(move));
             if (err != SUCCESS) {
-                printf("❌ Error sending move: %s\n", error_to_string(err));
+                printf("Error sending move: %s\n", error_to_string(err));
                 printf("\nEnter pit number or 'm' for menu: ");
                 fflush(stdout);
                 return;
@@ -301,14 +301,14 @@ static void handle_user_input(play_state_t* state, const msg_board_state_t* boar
 }
 
 void cmd_play_mode(void) {
-    printf("\n🎮 ENTERING PLAY MODE\n");
+    printf("\nENTERING PLAY MODE\n");
     
     /* Get active games count */
     int game_count = active_games_count();
     
     if (game_count == 0) {
         printf("❌ No active games found\n");
-        printf("💡 Use option 2 to challenge a player first!\n");
+    printf("Use option 2 to challenge a player first!\n");
         return;
     }
     
@@ -450,16 +450,16 @@ void cmd_play_mode(void) {
             
             /* Check if game is over */
             if (board.state == GAME_STATE_FINISHED) {
-                printf("\n🏁 ═══════════════════════════════════════════════════\n");
+            printf("\n=== GAME OVER ===\n");
                 printf("   GAME FINISHED!\n");
                 if (board.winner == WINNER_A) {
-                    printf("   🏆 Winner: %s (Score: %d)\n", board.player_a, board.score_a);
+                    printf("   Winner: %s (Score: %d)\n", board.player_a, board.score_a);
                     printf("   Player B: %s (Score: %d)\n", board.player_b, board.score_b);
                 } else if (board.winner == WINNER_B) {
-                    printf("   🏆 Winner: %s (Score: %d)\n", board.player_b, board.score_b);
+                    printf("   Winner: %s (Score: %d)\n", board.player_b, board.score_b);
                     printf("   Player A: %s (Score: %d)\n", board.player_a, board.score_a);
                 } else {
-                    printf("   🤝 Draw! (%d - %d)\n", board.score_a, board.score_b);
+                    printf("   Draw! (%d - %d)\n", board.score_a, board.score_b);
                 }
                 printf("═══════════════════════════════════════════════════\n");
                 printf("\nWould you like to challenge them again? (y/n): ");
@@ -490,7 +490,7 @@ void cmd_play_mode(void) {
             
             if (event == EVENT_TIMEOUT) {
                 /* Timeout waiting for move result - request board to re-sync */
-                printf("⚠️  Move response timeout - refreshing board\n");
+                printf("Move response timeout - refreshing board\n");
                 should_request_board = true;
                 state = STATE_INIT;
                 continue;

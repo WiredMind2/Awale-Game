@@ -1,10 +1,10 @@
 # Awale Game - New Architecture Documentation
 
-## 🎯 Overview
+## Overview
 
 This document describes the new modular architecture for the Awale (Oware/Mancala) game, designed to replace the monolithic client/server implementation with a clean, maintainable, and extensible codebase.
 
-## 🏗️ Architecture Principles
+## Architecture Principles
 
 ### **Separation of Concerns**
 The codebase is organized into distinct modules:
@@ -24,7 +24,7 @@ The codebase is organized into distinct modules:
 - Lock-per-game design for concurrent gameplay
 - No global mutable state
 
-## 📁 Directory Structure
+## Directory Structure
 
 ```
 awale-game/
@@ -66,7 +66,7 @@ awale-game/
 └── ARCHITECTURE.md           # This file
 ```
 
-## 🔌 Module Descriptions
+## Module Descriptions
 
 ### **Common Module** (`include/common/`, `src/common/`)
 
@@ -129,11 +129,11 @@ int rules_capture_seeds(board_t* board, int last_pit, player_id_t player);
 ```
 
 **Key Features:**
-- ✅ Proper pit ownership checking
-- ✅ Feeding rule (don't starve opponent if alternative exists)
-- ✅ Capture logic (2-3 seeds in opponent pits)
-- ✅ Win condition checking (25+ seeds or both sides empty)
-- ✅ Move simulation for validation
+- Proper pit ownership checking
+- Feeding rule (don't starve opponent if alternative exists)
+- Capture logic (2-3 seeds in opponent pits)
+- Win condition checking (25+ seeds or both sides empty)
+- Move simulation for validation
 
 #### `player.h` / `player.c`
 Player information and statistics:
@@ -213,10 +213,10 @@ error_code_t game_manager_play_move(game_manager_t* manager, ...);
 ```
 
 **Features:**
-- ✅ Thread-safe game creation and access
-- ✅ Lock-per-game for concurrent gameplay
-- ✅ Game ID generation and lookup
-- ✅ Player-based game search
+- Thread-safe game creation and access
+- Lock-per-game for concurrent gameplay
+- Game ID generation and lookup
+- Player-based game search
 
 #### `matchmaking.h` / `matchmaking.c`
 Challenge system and player registry:
@@ -242,12 +242,12 @@ error_code_t matchmaking_create_challenge(matchmaking_t* mm,
 ```
 
 **Features:**
-- ✅ Player registry
-- ✅ Challenge tracking
-- ✅ Mutual challenge detection (auto-start games)
-- ✅ Challenge expiration
+- Player registry
+- Challenge tracking
+- Mutual challenge detection (auto-start games)
+- Challenge expiration
 
-## 🔄 Protocol Flow
+## Protocol Flow
 
 ### **Connection Sequence**
 ```
@@ -292,7 +292,7 @@ Client                          Server
   |                               |
 ```
 
-## 🛠️ Building
+## Building
 
 ### **Using the New Makefile**
 ```bash
@@ -321,7 +321,7 @@ make -f Makefile.new help
 - `run-server`: Build and run server
 - `run-client PSEUDO=name`: Build and run client
 
-## 🧪 Testing
+## Testing
 
 ### **Unit Tests** (To be implemented)
 ```bash
@@ -329,16 +329,16 @@ make -f Makefile.new test
 ```
 
 Test coverage should include:
-- ✅ Board operations (init, copy, queries)
-- ✅ Rules validation (all error cases)
-- ✅ Sowing mechanics
-- ✅ Capture logic
-- ✅ Feeding rule enforcement
-- ✅ Serialization/deserialization
-- ✅ Game manager operations
-- ✅ Matchmaking logic
+- Board operations (init, copy, queries)
+- Rules validation (all error cases)
+- Sowing mechanics
+- Capture logic
+- Feeding rule enforcement
+- Serialization/deserialization
+- Game manager operations
+- Matchmaking logic
 
-## 📈 Improvements Over Original
+## Improvements Over Original
 
 | Aspect | Original | New Architecture |
 |--------|----------|------------------|
@@ -351,7 +351,7 @@ Test coverage should include:
 | **Maintainability** | Low | High |
 | **Extensibility** | Difficult | Easy |
 
-## 🔮 Future Enhancements
+## Future Enhancements
 
 ### **Planned Features**
 1. **Persistence**: Save/load games to disk
@@ -370,7 +370,7 @@ Test coverage should include:
 5. **Logging System**: Structured logging
 6. **Configuration**: Config file support
 
-## 📝 Migration Guide
+## Migration Guide
 
 ### **From Original to New**
 
@@ -404,7 +404,7 @@ msg_move_result_t result;
 session_send_move_result(&session, &result);
 ```
 
-## 🤝 Contributing
+## Contributing
 
 When adding new features:
 1. Follow the modular structure
@@ -414,7 +414,7 @@ When adding new features:
 5. Use the defined error codes
 6. Maintain thread safety
 
-## 📚 References
+## References
 
 - [Oware Rules](../RULES.md)
 - [Original Implementation](../awale_server.c)
@@ -422,5 +422,5 @@ When adding new features:
 
 ---
 
-**Status**: ✅ Core architecture implemented  
+**Status**: Core architecture implemented  
 **Next Steps**: Complete server/client main implementations, add tests, add persistence

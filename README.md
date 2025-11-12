@@ -2,7 +2,7 @@
 
 A modern, cross-platform implementation of Awale (Oware/Mancala) using C with a clean modular architecture and single-socket TCP communication.
 
-## 🎯 Features
+## Features
 
 - **Modular Architecture**: Clean separation between game logic, networking, and UI
 - **Single-Socket Communication**: Simplified TCP connections (no port negotiation)
@@ -11,7 +11,7 @@ A modern, cross-platform implementation of Awale (Oware/Mancala) using C with a 
 - **Thread-Safe**: Concurrent game support with proper synchronization
 - **Comprehensive Testing**: Automated unit tests for game logic and networking
 
-## 🏗️ Architecture
+## Architecture
 
 ### Core Modules
 - **Common**: Shared types, protocol definitions, and message structures
@@ -26,7 +26,7 @@ A modern, cross-platform implementation of Awale (Oware/Mancala) using C with a 
 - **Message Protocol**: Typed messages with fixed headers and variable payloads
 - **No Port Negotiation**: Direct connection to server discovery port
 
-## 🚀 Quick Start
+## Quick Start
 
 ### Prerequisites
 - C11 compiler (gcc/clang)
@@ -70,7 +70,7 @@ make run-client PSEUDO=Alice    # Auto-discovers server via UDP
 - Games are automatically managed by the server
 - Multiple games can run concurrently
 
-## 📋 Client Commands
+## Client Commands
 
 1. **List Players** - See all connected players
 2. **Challenge Player** - Send a game challenge
@@ -79,13 +79,13 @@ make run-client PSEUDO=Alice    # Auto-discovers server via UDP
 5. **Spectator Mode** - Watch ongoing games
 6. **Disconnect** - Exit the client
 
-## 🔧 Network Ports
+## Network Ports
 
 - **UDP 12346**: Broadcast discovery (client → server discovery)
 - **TCP 12345**: Server discovery port (default, configurable)
 - **Dynamic TCP**: Game connections (assigned by system)
 
-## 🧪 Testing
+## Testing
 
 ```bash
 make test         # Run all tests (33 total)
@@ -93,7 +93,7 @@ make test-game    # Game logic tests only
 make test-network # Network layer tests only
 ```
 
-## 📁 Project Structure
+## Project Structure
 
 ```
 ├── include/           # Header files
@@ -113,7 +113,7 @@ make test-network # Network layer tests only
 └── docs/             # Documentation
 ```
 
-## 🎮 Game Rules
+## Game Rules
 
 Awale follows traditional Mancala rules with the feeding rule:
 - Players take turns sowing seeds from pits
@@ -121,7 +121,7 @@ Awale follows traditional Mancala rules with the feeding rule:
 - **Feeding Rule**: Moves must leave opponent with playable seeds
 - First to 25+ seeds or with all remaining seeds wins
 
-## 🔄 Connection Process
+## Connection Process
 
 1. **UDP Discovery**: Client broadcasts "find server" request
 2. **Server Response**: Server replies with IP and TCP port
@@ -129,21 +129,21 @@ Awale follows traditional Mancala rules with the feeding rule:
 4. **Authentication**: Client sends MSG_CONNECT, server responds with session
 5. **Gameplay**: Bidirectional communication over single TCP socket
 
-## 🐛 Troubleshooting
+## Troubleshooting
 
 - **Connection Issues**: Check firewall settings, ensure UDP/TCP ports are open
 - **Build Errors**: Ensure C11 compiler and POSIX headers are available
 - **Windows Users**: Use WSL for native POSIX support
 - **Port Conflicts**: Server will use default ports, change if needed
 
-## 📚 Documentation
+## Documentation
 
 - `ARCHITECTURE.md` - Detailed module descriptions and data flows
 - `RULES.md` - Complete Awale game rules
 - `UDP_BROADCAST_DISCOVERY.md` - Network discovery implementation
 - `USER_MANUAL.md` - User guide and examples
 
-## 🧪 Development
+## Development
 
 The codebase emphasizes:
 - **Clean Interfaces**: Each module has well-defined responsibilities
@@ -151,6 +151,6 @@ The codebase emphasizes:
 - **Error Handling**: Comprehensive error codes and validation
 - **Thread Safety**: Proper synchronization for concurrent operations
 
-## 📄 License
+## License
 
 This educational implementation is provided as-is for learning purposes. See individual files for any licensing information.

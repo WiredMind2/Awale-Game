@@ -51,11 +51,11 @@ void* client_handler(void* arg) {
     session.pseudo[MAX_PSEUDO_LEN - 1] = '\0';
     session.authenticated = true;
     
-    printf("✓ Client thread started for %s\n", session.pseudo);
+    printf("Client thread started for %s\n", session.pseudo);
     
     /* Register session for push notifications */
     if (!session_registry_add(&session)) {
-        printf("❌ Failed to register session for %s (max sessions reached)\n", session.pseudo);
+    printf("Failed to register session for %s (max sessions reached)\n", session.pseudo);
         session_close(&session);
         free(handler);
         return NULL;
@@ -75,7 +75,7 @@ void* client_handler(void* arg) {
         if (now - last_check >= CHECK_INTERVAL) {
             error_code_t check_err = connection_check_alive(&session.conn);
             if (check_err != SUCCESS) {
-                printf("⚠️ Client %s connection check failed - disconnecting\n", session.pseudo);
+                printf("Client %s connection check failed - disconnecting\n", session.pseudo);
                 break;
             }
             last_check = now;
@@ -92,9 +92,9 @@ void* client_handler(void* arg) {
         
         if (err != SUCCESS) {
             if (err == ERR_NETWORK_ERROR) {
-                printf("🔌 Client %s disconnected (network error)\n", session.pseudo);
+                printf("Client %s disconnected (network error)\n", session.pseudo);
             } else {
-                printf("⚠️ Client %s error: %s\n", session.pseudo, error_to_string(err));
+                printf("Client %s error: %s\n", session.pseudo, error_to_string(err));
             }
             break;
         }
@@ -191,7 +191,7 @@ void* client_handler(void* arg) {
     }
     
 cleanup:
-    printf("🔌 Client %s disconnected\n", session.pseudo);
+    printf("Client %s disconnected\n", session.pseudo);
     
     /* Clean up all server-side resources for this client */
     session_registry_remove(&session);

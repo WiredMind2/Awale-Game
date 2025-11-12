@@ -15,7 +15,7 @@
 #define RUN_TEST(name) do { \
     printf("Running test: %s...", #name); \
     test_##name(); \
-    printf(" ✓\n"); \
+    printf(" OK\n"); \
     tests_passed++; \
 } while(0)
 
@@ -396,7 +396,7 @@ int main() {
     
     printf("\n");
     printf("═══════════════════════════════════════════════════════\n");
-    printf("  ✓ All %d tests passed!\n", tests_passed);
+    printf("  All %d tests passed!\n", tests_passed);
     printf("═══════════════════════════════════════════════════════\n");
     printf("\n");
     

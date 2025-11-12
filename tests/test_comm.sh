@@ -40,7 +40,7 @@ sleep 0.2
 
 # Check client output for expected lines
 CLIENT_OK=true
-if ! grep -q "✓ Connected to server" "$OUTPUT"; then
+if ! grep -q "Connected to server" "$OUTPUT"; then
     echo "[test][fail] Client did not report successful connection" >&2
     CLIENT_OK=false
 fi

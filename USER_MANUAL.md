@@ -58,12 +58,12 @@ make run-server
 ╚══════════════════════════════════════════════════════╝
 Discovery Port: 12345 (TCP)
 Broadcast Port: 12346 (UDP)
-✓ Game manager initialized
-✓ Matchmaking initialized
-✓ UDP broadcast discovery listening on port 12346
-✓ Discovery server listening on port 12345
+Game manager initialized
+Matchmaking initialized
+UDP broadcast discovery listening on port 12346
+Discovery server listening on port 12345
 
-🎮 Server ready! Waiting for connections...
+Server ready! Waiting for connections...
 ```
 
 ## Connecting as a Client
@@ -88,19 +88,19 @@ make run-client PSEUDO=Bob
 ### Client Output
 ```
 Player: Alice
-🔍 Broadcasting discovery request on local network...
-✓ Server discovered at 192.168.1.100:12345
-✓ Connected to server
+Broadcasting discovery request on local network...
+Server discovered at 192.168.1.100:12345
+Connected to server
    Client will listen on port: 54321
    Server listening on port: 54322
-✓ Bidirectional connection established
+Bidirectional connection established
 
 ╔══════════════════════════════════════════════════════╗
 ║              AWALE GAME CLIENT                       ║
 ╚══════════════════════════════════════════════════════╝
 Connected as: Alice
 
-📜 Available Commands:
+Available Commands:
   1. List connected players
   2. Challenge a player
   3. View pending challenges
@@ -115,19 +115,19 @@ Enter your choice:
 
 ### Implemented Features
 
-#### ✅ Core Gameplay
+#### Core Gameplay
 - **Full Awale Rules**: Complete implementation with feeding rule, capture mechanics
 - **Move Validation**: Server verifies all moves for legality
 - **Game State**: Real-time board state with scores
 - **Win Detection**: Automatic winner determination at 25+ seeds or starvation
 
-#### ✅ Multiplayer
+#### Multiplayer
 - **Multiple Simultaneous Games**: Server handles many games at once
 - **Player Registration**: Each client registers with unique username
 - **Challenge System**: Players challenge each other to start games
 - **Mutual Challenge**: When both players challenge each other, game auto-starts
 
-#### ✅ Network Features
+#### Network Features
 - **Automatic Server Discovery**: UDP broadcast finds servers automatically
 - **Bidirectional Communication**: Full-duplex sockets for real-time updates
 - **Dynamic Port Allocation**: No port conflicts, each connection uses unique ports
@@ -146,7 +146,7 @@ Shows all currently connected players on the server.
 ```
 Enter your choice: 1
 
-✓ Connected players (3):
+Connected players (3):
 ─────────────────────────────
   1. Alice (192.168.1.100)
   2. Bob (192.168.1.101)
@@ -169,7 +169,7 @@ Enter your choice: 2
 ⚔️  Challenge a player
 Enter opponent's pseudo: Bob
 
-✓ Challenge sent to Bob! Waiting for them to challenge you back...
+Challenge sent to Bob! Waiting for them to challenge you back...
 ```
 
 **When both challenge each other:**
@@ -189,7 +189,7 @@ Enter your choice: 3
 
 📨 Viewing pending challenges...
 
-✓ Pending challenges (2):
+Pending challenges (2):
 ─────────────────────────────
   1. Charlie
   2. David
@@ -230,7 +230,7 @@ Current turn: Player A (Alice)
 
 Enter pit number (0-11): 7
 
-✓ Move successful!
+Move successful!
   Seeds captured: 2
 ```
 

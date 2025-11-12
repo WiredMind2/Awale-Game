@@ -16,7 +16,7 @@ This document outlines the step-by-step sequences for performing the most common
 1. Open a terminal in the project directory
 2. Run `make run-server` to build and start the server with default settings
 3. Server will display startup banner and begin listening on default port 12345
-4. Server is ready when you see "🎮 Server ready! Waiting for connections..."
+4. Server is ready when you see "Server ready! Waiting for connections..."
 
 ### Custom Port Server Startup
 1. Open a terminal in the project directory

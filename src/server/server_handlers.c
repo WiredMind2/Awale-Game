@@ -57,7 +57,7 @@ void handle_challenge(session_t* session, const char* opponent) {
     }
     
     /* Send confirmation to challenger */
-    printf("📨 Challenge sent: %s -> %s\n", session->pseudo, opponent);
+    printf("Challenge sent: %s -> %s\n", session->pseudo, opponent);
     session_send_message(session, MSG_CHALLENGE_SENT, NULL, 0);
     
     /* Send push notification to opponent */
@@ -68,7 +68,7 @@ void handle_challenge(session_t* session, const char* opponent) {
     notification.challenge_id = (int64_t)time(NULL);  /* Simple ID using timestamp */
     
     session_send_message(opponent_session, MSG_CHALLENGE_RECEIVED, &notification, sizeof(notification));
-    printf("🔔 Notification sent to %s\n", opponent);
+    printf("Notification sent to %s\n", opponent);
 }
 
 /* Handle MSG_ACCEPT_CHALLENGE */
@@ -89,7 +89,7 @@ void handle_accept_challenge(session_t* session, const char* challenger) {
         return;
     }
     
-    printf("🎮 Game started: %s vs %s (ID: %s)\n", challenger, session->pseudo, game_id);
+    printf("Game started: %s vs %s (ID: %s)\n", challenger, session->pseudo, game_id);
     
     /* Remove the challenge from matchmaking */
     matchmaking_remove_challenge(g_matchmaking, challenger, session->pseudo);
@@ -115,7 +115,7 @@ void handle_decline_challenge(session_t* session, const char* challenger) {
     /* Remove the challenge */
     matchmaking_remove_challenge(g_matchmaking, challenger, session->pseudo);
     
-    printf("❌ Challenge declined: %s -> %s\n", challenger, session->pseudo);
+    printf("Challenge declined: %s -> %s\n", challenger, session->pseudo);
     
     /* Optionally notify the challenger */
     session_t* challenger_session = session_registry_find(challenger);
@@ -199,7 +199,7 @@ void handle_play_move(session_t* session, const msg_play_move_t* move) {
                 }
                 
                 game_manager_remove_game(g_game_manager, move->game_id);
-                printf("🏁 Game ended: %s vs %s - Winner: %s\n", 
+                printf("Game ended: %s vs %s - Winner: %s\n", 
                        game->player_a, game->player_b, 
                        result.winner == (winner_t)PLAYER_A ? game->player_a : 
                        result.winner == (winner_t)PLAYER_B ? game->player_b : "Draw");
@@ -209,7 +209,7 @@ void handle_play_move(session_t* session, const msg_play_move_t* move) {
             result.winner = NO_WINNER;
         }
         
-        printf("🎲 Move: %s played pit %d in %s (captured: %d)\n", 
+    printf("Move: %s played pit %d in %s (captured: %d)\n", 
                session->pseudo, move->pit_index, move->game_id, seeds_captured);
     } else {
         strncpy(result.message, error_to_string(err), 255);
@@ -314,7 +314,7 @@ void handle_spectate_game(session_t* session, const char* game_id) {
     
     session_send_message(session, MSG_SPECTATE_ACK, &ack, sizeof(ack));
     
-    printf("👁️  %s is now spectating %s\n", session->pseudo, game_id);
+    printf("%s is now spectating %s\n", session->pseudo, game_id);
     
     /* Notify players and other spectators */
     msg_spectator_joined_t notification;
@@ -353,7 +353,7 @@ void handle_stop_spectate(session_t* session, const char* game_id) {
     error_code_t err = game_manager_remove_spectator(g_game_manager, game_id, session->pseudo);
     
     if (err == SUCCESS) {
-        printf("👁️  %s stopped spectating %s\n", session->pseudo, game_id);
+    printf("%s stopped spectating %s\n", session->pseudo, game_id);
         session_send_message(session, MSG_CHALLENGE_SENT, NULL, 0);  /* Reuse as ACK */
     } else {
         session_send_error(session, err, "Failed to stop spectating");
@@ -387,7 +387,7 @@ void handle_set_bio(session_t* session, const msg_set_bio_t* bio_msg) {
     pthread_mutex_unlock(&g_matchmaking->lock);
 
     if (found) {
-        printf("📝 %s updated their bio (%d lines)\n", session->pseudo, bio_msg->bio_lines);
+    printf("%s updated their bio (%d lines)\n", session->pseudo, bio_msg->bio_lines);
         session_send_message(session, MSG_CHALLENGE_SENT, NULL, 0);  /* Reuse as ACK */
     } else {
         session_send_error(session, ERR_PLAYER_NOT_FOUND, "Player not found");
@@ -500,7 +500,7 @@ void handle_send_chat(session_t* session, const msg_send_chat_t* chat_msg) {
 
     session_send_message(recipient_session, MSG_CHAT_MESSAGE, &chat_notification, sizeof(chat_notification));
 
-        printf("💬 Private chat: %s -> %s\n", session->pseudo, chat_msg->recipient);
+    printf("Private chat: %s -> %s\n", session->pseudo, chat_msg->recipient);
     } else {
     /* Global chat: send to all online players */
     snprintf(chat_notification.sender, MAX_PSEUDO_LEN, "%s", session->pseudo);
@@ -520,7 +520,7 @@ void handle_send_chat(session_t* session, const msg_send_chat_t* chat_msg) {
         }
         pthread_mutex_unlock(&g_matchmaking->lock);
 
-        printf("📢 Global chat: %s\n", session->pseudo);
+    printf("Global chat: %s\n", session->pseudo);
     }
 
     /* Send the chat notification back to the sender so their client displays the message

@@ -85,14 +85,14 @@ server: dirs $(SERVER_BIN)
 
 $(SERVER_BIN): $(SHARED_OBJ) $(SERVER_OBJ)
 	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
-	@echo "✓ Server built successfully: $@"
+	@echo "Server built successfully: $@"
 
 # Client binary
 client: dirs $(CLIENT_BIN)
 
 $(CLIENT_BIN): $(SHARED_OBJ) $(CLIENT_OBJ)
 	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
-	@echo "✓ Client built successfully: $@"
+	@echo "Client built successfully: $@"
 
 # Compile source files
 $(BUILD_DIR)/%.o: $(SRC_DIR)/%.c
@@ -102,7 +102,7 @@ $(BUILD_DIR)/%.o: $(SRC_DIR)/%.c
 # Debug build
 debug: CFLAGS += -g -DDEBUG -O0
 debug: clean all
-	@echo "✓ Debug build complete"
+	@echo "Debug build complete"
 
 # Test binaries
 TEST_GAME_LOGIC := $(BUILD_DIR)/test_game_logic
@@ -113,7 +113,7 @@ TEST_STORAGE := $(BUILD_DIR)/test_storage
 test: test-game test-network test-storage test-integration
 	@echo ""
 	@echo "═══════════════════════════════════════════════════════"
-	@echo "  ✓ All tests completed successfully!"
+	@echo "  All tests completed successfully!"
 	@echo "═══════════════════════════════════════════════════════"
 
 test-game: dirs $(TEST_GAME_LOGIC)
@@ -174,12 +174,12 @@ run-client: client
 clean:
 	rm -rf $(BUILD_DIR)
 	rm -rf $(DATA_DIR)
-	@echo "✓ Clean complete"
+	@echo "Clean complete"
 
 # Clean everything including data
 clean-all: clean
 	rm -rf $(DATA_DIR)
-	@echo "✓ Full clean complete"
+	@echo "Full clean complete"
 
 # Show variables (for debugging Makefile)
 show-vars:

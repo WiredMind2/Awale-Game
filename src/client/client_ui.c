@@ -27,20 +27,20 @@ void print_menu(void) {
     printf("  2. Challenge a player\n");
     printf("  3. View/Respond to challenges");
     if (pending > 0) {
-        printf(" 🔔 [%d pending]", pending);
+    printf(" [%d pending]", pending);
     }
     printf("\n");
-    printf("  4. 📝 Set your bio\n");
-    printf("  5. 📖 View player bio\n");
-    printf("  6. 📊 View player statistics\n");
+    printf("  4. Set your bio\n");
+    printf("  5. View player bio\n");
+    printf("  6. View player statistics\n");
     printf("  7. Quit\n");
-    printf("  8. 🎮 Play mode");
+    printf("  8. Play mode");
     if (active > 0) {
         printf(" [%d active game%s]", active, active > 1 ? "s" : "");
     }
     printf("\n");
-    printf("  9. 💬 Chat\n");
-    printf("  10. 👁️  Spectator mode\n");
+    printf("  9. Chat\n");
+    printf("  10. Spectator mode\n");
     printf("═════════════════════════════════════════════════════════\n");
     printf("Your choice: ");
 }
@@ -73,7 +73,7 @@ void print_board(const msg_board_state_t* board) {
     printf("═══════════════════════════════════════════════════════════\n");
     
     if (board->state == GAME_STATE_FINISHED) {
-        printf("🏁 PARTIE TERMINÉE - ");
+    printf("PARTIE TERMINEE - ");
         if (board->winner == WINNER_A) {
             printf("%s gagne!\n", board->player_a);
         } else if (board->winner == WINNER_B) {
@@ -86,9 +86,9 @@ void print_board(const msg_board_state_t* board) {
                (board->current_player == PLAYER_A) ? board->player_a : board->player_b);
         
         if (board->current_player == PLAYER_A) {
-            printf("💡 %s peut jouer les fosses 0 à 5 (rangée du bas)\n", board->player_a);
+            printf("%s peut jouer les fosses 0 à 5 (rangée du bas)\n", board->player_a);
         } else {
-            printf("💡 %s peut jouer les fosses 6 à 11 (rangée du haut)\n", board->player_b);
+            printf("%s peut jouer les fosses 6 à 11 (rangée du haut)\n", board->player_b);
         }
     }
     printf("═══════════════════════════════════════════════════════════\n");

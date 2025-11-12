@@ -244,10 +244,10 @@ int main(int argc, char** argv) {
 
         pthread_detach(handler->thread);
 
-        printf("✓ Client handler thread started for %s\n\n", handler->pseudo);
+    printf("Client handler thread started for %s\n\n", handler->pseudo);
     }
 
-    printf("\n🛑 Server stopped\n");
+    printf("\nServer stopped\n");
 
     connection_close(&discovery_server);
     game_manager_destroy(&g_game_manager);

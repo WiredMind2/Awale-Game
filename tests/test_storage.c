@@ -16,7 +16,7 @@
 #define RUN_TEST(name) do { \
     printf("Running test: %s...", #name); \
     test_##name(); \
-    printf(" ✓\n"); \
+    printf(" OK\n"); \
     tests_passed++; \
 } while(0)
 
@@ -272,7 +272,7 @@ int main() {
     RUN_TEST(player_bio_functionality);
 
     printf("\n═══════════════════════════════════════════════════════\n");
-    printf("  ✓ All %d tests passed!\n", tests_passed);
+    printf("  All %d tests passed!\n", tests_passed);
     printf("═══════════════════════════════════════════════════════\n");
 
     return 0;

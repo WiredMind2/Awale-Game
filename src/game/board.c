@@ -234,7 +234,7 @@ void board_print_detailed(const board_t* board, const char* player_a_name, const
     printf("═══════════════════════════════════════════════════════════\n");
     
     if (board->state == GAME_STATE_FINISHED) {
-        printf("🏁 PARTIE TERMINÉE - ");
+    printf("PARTIE TERMINEE - ");
         if (board->winner == WINNER_A) {
             printf("%s gagne!\n", player_a_name ? player_a_name : "Player A");
         } else if (board->winner == WINNER_B) {

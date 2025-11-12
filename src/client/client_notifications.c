@@ -75,7 +75,7 @@ void* notification_listener(void* arg) {
         if (type == MSG_CHALLENGE_RECEIVED) {
             msg_challenge_received_t* notif = (msg_challenge_received_t*)payload;
             pending_challenges_add(notif->from, notif->challenge_id);
-            printf("\n\n🔔 ═══════════════════════════════════════════════════\n");
+            printf("\n\n=== NOTIFICATIONS ===\n");
             printf("   CHALLENGE RECEIVED!\n");
             printf("   %s\n", notif->message);
             printf("   Use option 3 to accept or decline this challenge\n");
@@ -88,7 +88,7 @@ void* notification_listener(void* arg) {
             /* Add to active games */
             active_games_add(start->game_id, start->player_a, start->player_b, start->your_side);
             
-            printf("\n\n🎮 ═══════════════════════════════════════════════════\n");
+            printf("\n\n=== GAME ===\n");
             printf("   GAME STARTED!\n");
             printf("   Game ID: %s\n", start->game_id);
             printf("   Players: %s vs %s\n", start->player_a, start->player_b);
@@ -107,7 +107,7 @@ void* notification_listener(void* arg) {
             }
         } else if (type == MSG_SPECTATOR_JOINED) {
             msg_spectator_joined_t* notif = (msg_spectator_joined_t*)payload;
-            printf("\n\n👁️ ═══════════════════════════════════════════════════\n");
+            printf("\n\n=== SPECTATOR ===\n");
             printf("   SPECTATOR JOINED: %s\n", notif->spectator);
             printf("   Game ID: %s\n", notif->game_id);
             printf("   Total spectators: %d\n", notif->spectator_count);
@@ -117,7 +117,7 @@ void* notification_listener(void* arg) {
         } else if (type == MSG_GAME_OVER) {
             msg_game_over_t* game_over = (msg_game_over_t*)payload;
             active_games_remove(game_over->game_id);
-            printf("\n\n🏁 ═══════════════════════════════════════════════════\n");
+            printf("\n\n=== GAME OVER ===\n");
             printf("   GAME OVER!\n");
             printf("   %s\n", game_over->message);
             printf("═══════════════════════════════════════════════════\n");
@@ -125,7 +125,7 @@ void* notification_listener(void* arg) {
             fflush(stdout);
         } else if (type == MSG_CHAT_MESSAGE) {
             msg_chat_message_t* chat = (msg_chat_message_t*)payload;
-            printf("\n\n💬 ═══════════════════════════════════════════════════\n");
+            printf("\n\n=== CHAT ===\n");
             if (strlen(chat->recipient) == 0) {
                 printf("   GLOBAL CHAT from %s:\n", chat->sender);
             } else {
