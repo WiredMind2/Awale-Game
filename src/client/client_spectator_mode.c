@@ -324,6 +324,7 @@ void cmd_spectator_mode(void) {
         
         /* Check if board was updated by notification */
         if (spectator_state_check_and_clear_updated() && !board_request_pending) {
+            prompt_printed = false;  /* Reset prompt flag when board updates */
 
             /* Auto-refresh board */
             client_log_info(CLIENT_LOG_SPECTATOR_BOARD_UPDATED);

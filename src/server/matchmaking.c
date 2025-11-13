@@ -2,6 +2,10 @@
 #include "../../include/server/storage.h"
 #include <string.h>
 #include <stdio.h>
+#include <stdlib.h>
+
+/* Static counter for challenge ID generation */
+static int64_t g_next_challenge_id = 1;
 
 error_code_t matchmaking_init(matchmaking_t* mm) {
     if (!mm) return ERR_INVALID_PARAM;
@@ -200,6 +204,104 @@ error_code_t matchmaking_update_player_stats(matchmaking_t* mm, const char* pseu
     
     pthread_mutex_unlock(&mm->lock);
     return ERR_PLAYER_NOT_FOUND;
+}
+
+error_code_t matchmaking_create_challenge_with_id(matchmaking_t* mm, const char* challenger,
+                                                 const char* opponent, int64_t* challenge_id) {
+    if (!mm || !challenger || !opponent || !challenge_id) return ERR_INVALID_PARAM;
+
+    pthread_mutex_lock(&mm->lock);
+
+    // Check if challenge already exists between these players
+    for (int i = 0; i < MAX_CHALLENGES; i++) {
+        if (mm->challenges[i].active &&
+            strcmp(mm->challenges[i].challenger, challenger) == 0 &&
+            strcmp(mm->challenges[i].opponent, opponent) == 0) {
+            *challenge_id = mm->challenges[i].challenge_id;
+            pthread_mutex_unlock(&mm->lock);
+            return SUCCESS;  // Challenge already exists
+        }
+    }
+
+    // Add new challenge
+    if (mm->challenge_count >= MAX_CHALLENGES) {
+        pthread_mutex_unlock(&mm->lock);
+        return ERR_MAX_CAPACITY;
+    }
+
+    for (int i = 0; i < MAX_CHALLENGES; i++) {
+        if (!mm->challenges[i].active) {
+            mm->challenges[i].challenge_id = g_next_challenge_id++;
+            *challenge_id = mm->challenges[i].challenge_id;
+            strncpy(mm->challenges[i].challenger, challenger, MAX_PSEUDO_LEN - 1);
+            strncpy(mm->challenges[i].opponent, opponent, MAX_PSEUDO_LEN - 1);
+            mm->challenges[i].created_at = time(NULL);
+            mm->challenges[i].active = true;
+            mm->challenge_count++;
+            break;
+        }
+    }
+
+    pthread_mutex_unlock(&mm->lock);
+    return SUCCESS;
+}
+
+error_code_t matchmaking_remove_challenge_by_id(matchmaking_t* mm, int64_t challenge_id) {
+    if (!mm) return ERR_INVALID_PARAM;
+
+    pthread_mutex_lock(&mm->lock);
+
+    for (int i = 0; i < MAX_CHALLENGES; i++) {
+        if (mm->challenges[i].active && mm->challenges[i].challenge_id == challenge_id) {
+            mm->challenges[i].active = false;
+            mm->challenge_count--;
+            pthread_mutex_unlock(&mm->lock);
+            return SUCCESS;
+        }
+    }
+
+    pthread_mutex_unlock(&mm->lock);
+    return ERR_GAME_NOT_FOUND;  // Challenge not found
+}
+
+error_code_t matchmaking_find_challenge_by_id(matchmaking_t* mm, int64_t challenge_id, challenge_t** challenge) {
+    if (!mm || !challenge) return ERR_INVALID_PARAM;
+
+    pthread_mutex_lock(&mm->lock);
+
+    for (int i = 0; i < MAX_CHALLENGES; i++) {
+        if (mm->challenges[i].active && mm->challenges[i].challenge_id == challenge_id) {
+            *challenge = &mm->challenges[i];
+            pthread_mutex_unlock(&mm->lock);
+            return SUCCESS;
+        }
+    }
+
+    pthread_mutex_unlock(&mm->lock);
+    return ERR_GAME_NOT_FOUND;  // Challenge not found
+}
+
+void matchmaking_cleanup_expired_challenges(matchmaking_t* mm) {
+    if (!mm) return;
+
+    pthread_mutex_lock(&mm->lock);
+
+    time_t now = time(NULL);
+    const int CHALLENGE_TIMEOUT_SECONDS = 60;
+
+    for (int i = 0; i < MAX_CHALLENGES; i++) {
+        if (mm->challenges[i].active &&
+            (now - mm->challenges[i].created_at) > CHALLENGE_TIMEOUT_SECONDS) {
+            printf("Challenge %lld expired (challenger: %s, opponent: %s)\n",
+                   (long long)mm->challenges[i].challenge_id,
+                   mm->challenges[i].challenger,
+                   mm->challenges[i].opponent);
+            mm->challenges[i].active = false;
+            mm->challenge_count--;
+        }
+    }
+
+    pthread_mutex_unlock(&mm->lock);
 }
 
 error_code_t matchmaking_get_player_stats(matchmaking_t* mm, const char* pseudo, 

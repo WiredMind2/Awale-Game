@@ -122,6 +122,18 @@ void* client_handler(void* arg) {
                 handle_decline_challenge(&session, response->challenger);
                 break;
             }
+
+            case MSG_CHALLENGE_ACCEPT: {
+                msg_challenge_accept_t* accept_msg = (msg_challenge_accept_t*)payload;
+                handle_challenge_accept(&session, accept_msg);
+                break;
+            }
+
+            case MSG_CHALLENGE_DECLINE: {
+                msg_challenge_decline_t* decline_msg = (msg_challenge_decline_t*)payload;
+                handle_challenge_decline(&session, decline_msg);
+                break;
+            }
             
             case MSG_GET_CHALLENGES:
                 handle_get_challenges(&session);

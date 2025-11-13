@@ -134,8 +134,16 @@ int main(int argc, char** argv) {
     printf("\nServer ready! Waiting for connections...\n\n");
 
     /* Accept loop */
+    time_t last_cleanup = time(NULL);
     while (g_running)
     {
+        /* Periodic cleanup of expired challenges */
+        time_t now = time(NULL);
+        if (now - last_cleanup >= 30) {  /* Clean up every 30 seconds */
+            matchmaking_cleanup_expired_challenges(&g_matchmaking);
+            last_cleanup = now;
+        }
+
         /* Accept client connection on discovery port */
         connection_t client_conn;
         connection_init(&client_conn);

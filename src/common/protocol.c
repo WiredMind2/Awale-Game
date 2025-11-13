@@ -11,6 +11,8 @@ const char* message_type_to_string(message_type_t type) {
         case MSG_CHALLENGE: return "CHALLENGE";
         case MSG_ACCEPT_CHALLENGE: return "ACCEPT_CHALLENGE";
         case MSG_DECLINE_CHALLENGE: return "DECLINE_CHALLENGE";
+        case MSG_CHALLENGE_ACCEPT: return "CHALLENGE_ACCEPT";
+        case MSG_CHALLENGE_DECLINE: return "CHALLENGE_DECLINE";
         case MSG_GET_CHALLENGES: return "GET_CHALLENGES";
         case MSG_PLAY_MOVE: return "PLAY_MOVE";
         case MSG_GET_BOARD: return "GET_BOARD";
@@ -33,5 +35,5 @@ const char* message_type_to_string(message_type_t type) {
 }
 
 bool is_valid_message_type(message_type_t type) {
-    return type > MSG_UNKNOWN && type <= MSG_CHAT_HISTORY;
+    return type > MSG_UNKNOWN && type <= MSG_PLAYER_STATS;
 }

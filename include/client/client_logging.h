@@ -7,7 +7,7 @@
 
 #define LANGUAGE_EN 0
 #define LANGUAGE_FR 1
-#define CURRENT_LANGUAGE LANGUAGE_FR
+#define CURRENT_LANGUAGE LANGUAGE_EN
 
 #include <stdarg.h>
 #include <stdio.h>

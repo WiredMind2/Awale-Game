@@ -152,24 +152,6 @@ $(TEST_NETWORK): $(COMMON_OBJ) $(NETWORK_OBJ) tests/test_network.c
 $(TEST_STORAGE): $(SHARED_OBJ) $(filter-out $(BUILD_DIR)/server/main.o,$(SERVER_OBJ)) tests/test_storage.c
 	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
 
-# Run server (discovery port with UDP broadcast support)
-DISCOVERY_PORT ?= 12345
-
-run-server: server
-	@echo "Starting Awale server..."
-	@echo "  Discovery Port (TCP): $(DISCOVERY_PORT)"
-	@echo "  Broadcast Port (UDP): 12346"
-	@echo "Clients will discover server automatically via UDP broadcast."
-	$(SERVER_BIN) $(DISCOVERY_PORT)
-
-# Run client (use PSEUDO=name to set player name)
-PSEUDO ?= Player1
-
-run-client: client
-	@echo "Connecting as $(PSEUDO)..."
-	@echo "Server will be discovered automatically via UDP broadcast."
-	$(CLIENT_BIN) $(PSEUDO)
-
 # Clean build artifacts
 clean:
 	rm -rf $(BUILD_DIR)

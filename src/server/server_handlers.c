@@ -46,27 +46,27 @@ void handle_challenge(session_t* session, const char* opponent) {
         session_send_error(session, ERR_PLAYER_NOT_FOUND, "Player not found or offline");
         return;
     }
-    
-    /* Record the challenge */
-    bool mutual_found = false;
-    error_code_t err = matchmaking_create_challenge(g_matchmaking, session->pseudo, opponent, &mutual_found);
-    
+
+    /* Record the challenge with ID */
+    int64_t challenge_id;
+    error_code_t err = matchmaking_create_challenge_with_id(g_matchmaking, session->pseudo, opponent, &challenge_id);
+
     if (err != SUCCESS) {
         session_send_error(session, err, "Failed to create challenge");
         return;
     }
-    
+
     /* Send confirmation to challenger */
-    printf("Challenge sent: %s -> %s\n", session->pseudo, opponent);
+    printf("Challenge sent: %s -> %s (ID: %lld)\n", session->pseudo, opponent, (long long)challenge_id);
     session_send_message(session, MSG_CHALLENGE_SENT, NULL, 0);
-    
+
     /* Send push notification to opponent */
     msg_challenge_received_t notification;
     memset(&notification, 0, sizeof(notification));
     snprintf(notification.from, MAX_PSEUDO_LEN, "%s", session->pseudo);
     snprintf(notification.message, 256, "%s challenges you to a game!", session->pseudo);
-    notification.challenge_id = (int64_t)time(NULL);  /* Simple ID using timestamp */
-    
+    notification.challenge_id = challenge_id;
+
     session_send_message(opponent_session, MSG_CHALLENGE_RECEIVED, &notification, sizeof(notification));
     printf("Notification sent to %s\n", opponent);
 }
@@ -538,4 +538,104 @@ void handle_send_chat(session_t* session, const msg_send_chat_t* chat_msg) {
     /* Send the chat notification back to the sender so their client displays the message
        via the same MSG_CHAT_MESSAGE handler. */
     session_send_message(session, MSG_CHAT_MESSAGE, &chat_notification, sizeof(chat_notification));
+}
+
+/* Handle MSG_CHALLENGE_ACCEPT */
+void handle_challenge_accept(session_t* session, const msg_challenge_accept_t* accept_msg) {
+    if (!accept_msg) {
+        session_send_error(session, ERR_INVALID_PARAM, "Invalid accept message");
+        return;
+    }
+
+    /* Find the challenge */
+    challenge_t* challenge = NULL;
+    error_code_t err = matchmaking_find_challenge_by_id(g_matchmaking, accept_msg->challenge_id, &challenge);
+
+    if (err != SUCCESS || !challenge) {
+        session_send_error(session, ERR_GAME_NOT_FOUND, "Challenge not found or expired");
+        return;
+    }
+
+    /* Verify that the accepter is the opponent */
+    if (strcmp(session->pseudo, challenge->opponent) != 0) {
+        session_send_error(session, ERR_INVALID_PARAM, "You are not the recipient of this challenge");
+        return;
+    }
+
+    /* Find the challenger's session */
+    session_t* challenger_session = session_registry_find(challenge->challenger);
+    if (!challenger_session) {
+        session_send_error(session, ERR_PLAYER_NOT_FOUND, "Challenger not found or offline");
+        matchmaking_remove_challenge_by_id(g_matchmaking, accept_msg->challenge_id);
+        return;
+    }
+
+    /* Create the game */
+    char game_id[MAX_GAME_ID_LEN];
+    err = game_manager_create_game(g_game_manager, challenge->challenger, session->pseudo, game_id);
+
+    if (err != SUCCESS) {
+        session_send_error(session, err, "Failed to create game");
+        return;
+    }
+
+    printf("Challenge accepted: %s vs %s (ID: %s)\n", challenge->challenger, session->pseudo, game_id);
+
+    /* Remove the challenge */
+    matchmaking_remove_challenge_by_id(g_matchmaking, accept_msg->challenge_id);
+
+    /* Send MSG_GAME_STARTED to both players */
+    msg_game_started_t start_msg;
+    memset(&start_msg, 0, sizeof(start_msg));
+    snprintf(start_msg.game_id, MAX_GAME_ID_LEN, "%s", game_id);
+    snprintf(start_msg.player_a, MAX_PSEUDO_LEN, "%s", challenge->challenger);
+    snprintf(start_msg.player_b, MAX_PSEUDO_LEN, "%s", session->pseudo);
+
+    /* Send to accepter (Player B) */
+    start_msg.your_side = PLAYER_B;
+    session_send_message(session, MSG_GAME_STARTED, &start_msg, sizeof(start_msg));
+
+    /* Send to challenger (Player A) */
+    start_msg.your_side = PLAYER_A;
+    session_send_message(challenger_session, MSG_GAME_STARTED, &start_msg, sizeof(start_msg));
+}
+
+/* Handle MSG_CHALLENGE_DECLINE */
+void handle_challenge_decline(session_t* session, const msg_challenge_decline_t* decline_msg) {
+    if (!decline_msg) {
+        session_send_error(session, ERR_INVALID_PARAM, "Invalid decline message");
+        return;
+    }
+
+    /* Find the challenge */
+    challenge_t* challenge = NULL;
+    error_code_t err = matchmaking_find_challenge_by_id(g_matchmaking, decline_msg->challenge_id, &challenge);
+
+    if (err != SUCCESS || !challenge) {
+        session_send_error(session, ERR_GAME_NOT_FOUND, "Challenge not found or expired");
+        return;
+    }
+
+    /* Verify that the decliner is the opponent */
+    if (strcmp(session->pseudo, challenge->opponent) != 0) {
+        session_send_error(session, ERR_INVALID_PARAM, "You are not the recipient of this challenge");
+        return;
+    }
+
+    printf("Challenge declined: %s -> %s\n", challenge->challenger, session->pseudo);
+
+    /* Remove the challenge */
+    matchmaking_remove_challenge_by_id(g_matchmaking, decline_msg->challenge_id);
+
+    /* Notify the challenger */
+    session_t* challenger_session = session_registry_find(challenge->challenger);
+    if (challenger_session) {
+        msg_error_t decline_msg;
+        decline_msg.error_code = SUCCESS;
+        snprintf(decline_msg.error_msg, 256, "%s declined your challenge", session->pseudo);
+        session_send_message(challenger_session, MSG_ERROR, &decline_msg, sizeof(decline_msg));
+    }
+
+    /* Confirm to decliner */
+    session_send_message(session, MSG_CHALLENGE_SENT, NULL, 0);  /* Reuse as ACK */
 }

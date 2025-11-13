@@ -121,14 +121,35 @@ void* notification_listener(void* arg) {
                 ui_display_chat_message(chat);
             }
         } else {
-            /* Not a notification message, log it and skip without consuming so it remains for main thread */
-            client_log_warning("Notification listener peeked at non-notification message type: %d", type);
+            /* Not a notification message - leave it for the main thread */
             consecutive_errors = 0;  /* Reset on successful peek */
             continue;
         }
     }
     
     return NULL;
+}
+
+/* Send challenge accept message */
+error_code_t send_challenge_accept(int64_t challenge_id) {
+    session_t* session = client_state_get_session();
+    msg_challenge_accept_t msg;
+    memset(&msg, 0, sizeof(msg));
+    msg.challenge_id = challenge_id;
+    /* response can be empty for now */
+
+    return session_send_message(session, MSG_CHALLENGE_ACCEPT, &msg, sizeof(msg));
+}
+
+/* Send challenge decline message */
+error_code_t send_challenge_decline(int64_t challenge_id) {
+    session_t* session = client_state_get_session();
+    msg_challenge_decline_t msg;
+    memset(&msg, 0, sizeof(msg));
+    msg.challenge_id = challenge_id;
+    /* response can be empty for now */
+
+    return session_send_message(session, MSG_CHALLENGE_DECLINE, &msg, sizeof(msg));
 }
 
 /* Start notification listener thread */

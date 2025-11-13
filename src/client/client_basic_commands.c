@@ -5,6 +5,7 @@
 #define _POSIX_C_SOURCE 200809L
 
 #include "../../include/client/client_basic_commands.h"
+#include "../../include/client/client_notifications.h"
 #include "../../include/client/client_state.h"
 #include "../../include/client/client_ui.h"
 #include "../../include/client/client_logging.h"
@@ -106,61 +107,59 @@ __attribute__((unused)) void cmd_challenge_player(void)
 /* View and respond to challenges */
 __attribute__((unused)) void cmd_view_challenges(void)
 {
-    session_t* session = client_state_get_session();
-    
     int count = pending_challenges_count();
-    
+
     ui_display_pending_challenges(count);
-    
+
     if (count == 0) {
         return;
     }
-    
+
     char choice[32];
     if (read_line(choice, 32) == NULL || strlen(choice) == 0) {
         return;
     }
-    
+
     /* Parse choice */
     bool is_decline = (choice[0] == 'd' || choice[0] == 'D');
     int index = atoi(is_decline ? choice + 1 : choice);
-    
+
     if (index == 0) {
         client_log_info(CLIENT_LOG_CANCELLED);
         return;
     }
-    
+
     if (index < 1 || index > count) {
         client_log_error(CLIENT_LOG_INVALID_CHOICE);
         return;
     }
-    
+
     /* Find the selected challenge */
     pending_challenge_t* selected = pending_challenges_get(index - 1);
     if (!selected) {
         client_log_error(CLIENT_LOG_CHALLENGE_NOT_FOUND);
         return;
     }
-    
+
     char selected_challenger[MAX_PSEUDO_LEN];
     snprintf(selected_challenger, MAX_PSEUDO_LEN, "%s", selected->challenger);
-    
+
     /* Send accept or decline */
-    msg_challenge_response_t response;
-    memset(&response, 0, sizeof(response));
-    snprintf(response.challenger, MAX_PSEUDO_LEN, "%s", selected_challenger);
-    
-    message_type_t msg_type = is_decline ? MSG_DECLINE_CHALLENGE : MSG_ACCEPT_CHALLENGE;
-    error_code_t err = session_send_message(session, msg_type, &response, sizeof(response));
-    
+    error_code_t err;
+    if (is_decline) {
+        err = send_challenge_decline(selected->challenge_id);
+    } else {
+        err = send_challenge_accept(selected->challenge_id);
+    }
+
     if (err != SUCCESS) {
         client_log_error(CLIENT_LOG_ERROR_RECEIVING_RESPONSE_WITH_ERR, error_to_string(err));
         return;
     }
-    
+
     /* Remove from pending */
     pending_challenges_remove(selected_challenger);
-    
+
     ui_display_challenge_response(selected_challenger, !is_decline);
 }
 

@@ -189,6 +189,58 @@ This document outlines the step-by-step sequences for performing the most common
 2. Return to main menu
 3. Chat mode terminates
 
+## Background Notification Processing
+
+### Notification Listener Thread
+1. Client starts notification listener thread upon connection
+2. Thread continuously monitors for server notifications
+3. Notifications processed in background without user interaction
+4. Supported notification types:
+   - Challenge received
+   - Game started
+   - Move results
+   - Game over
+   - Chat messages
+   - Spectator updates
+
+### Notification Display
+1. Notifications appear immediately in any mode
+2. Real-time updates for game state changes
+3. Automatic board refreshes in spectator mode
+4. Challenge notifications with interactive prompts
+
+## Error Recovery and Retry Sequences
+
+### Network Timeout Recovery
+1. Operation times out (e.g., board request, message send)
+2. Client displays timeout warning
+3. Automatic retry with exponential backoff
+4. Maximum retry attempts before error
+5. User notified of retry status
+
+### Connection Loss Handling
+1. Network connection lost during session
+2. Client displays connection lost message
+3. Automatic reconnection attempts (if implemented)
+4. Session state preserved where possible
+5. Graceful degradation to offline mode
+
+### Board Request Retry Logic
+1. Board request fails or times out
+2. Client retries request up to 3 times
+3. Displays retry attempt messages
+4. Falls back to manual refresh option
+5. Preserves game continuity
+
+## Spectator Mode Updates
+
+### Automatic Updates (Current Implementation)
+1. Enter spectator mode and select game
+2. Initial board displayed
+3. Background notifications trigger automatic board refreshes
+4. Board updates in real-time when moves are made
+5. Manual refresh ('r') still available as fallback
+
 ## Common Error Scenarios
 
 ### No Server Found

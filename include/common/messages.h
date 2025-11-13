@@ -54,6 +54,18 @@ typedef struct {
     char challenger[MAX_PSEUDO_LEN];  /* Who originally challenged */
 } msg_challenge_response_t;
 
+/* MSG_CHALLENGE_ACCEPT */
+typedef struct {
+    int64_t challenge_id;
+    char response[256];
+} msg_challenge_accept_t;
+
+/* MSG_CHALLENGE_DECLINE */
+typedef struct {
+    int64_t challenge_id;
+    char response[256];
+} msg_challenge_decline_t;
+
 /* MSG_GAME_STARTED */
 typedef struct {
     char game_id[MAX_GAME_ID_LEN];

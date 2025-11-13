@@ -5,6 +5,7 @@
 #include "../../include/client/client_ui.h"
 #include "../../include/client/client_state.h"
 #include "../../include/client/client_logging.h"
+#include "../../include/client/client_notifications.h"
 #include "../../include/common/types.h"
 #include "../../include/game/board.h"
 #include <stdio.h>
@@ -267,9 +268,9 @@ void ui_display_challenge_received(const msg_challenge_received_t* notif) {
     printf(CLIENT_UI_NOTIFICATION_HEADER);
     printf(CLIENT_UI_NOTIFICATION_CHALLENGE);
     printf(CLIENT_UI_NOTIFICATION_MESSAGE, notif->message);
-    printf(CLIENT_UI_NOTIFICATION_CHALLENGE_HINT);
     printf(CLIENT_UI_NOTIFICATION_SEPARATOR);
-    printf(CLIENT_UI_NOTIFICATION_PROMPT);
+    printf("Use option 3 in main menu to view and respond to this challenge.\n");
+    printf(CLIENT_UI_NOTIFICATION_SEPARATOR);
     fflush(stdout);
 }
 
@@ -291,7 +292,6 @@ void ui_display_spectator_joined(const msg_spectator_joined_t* notif) {
     printf(CLIENT_UI_SPECTATOR_JOINED_ID, notif->game_id);
     printf(CLIENT_UI_SPECTATOR_JOINED_COUNT, notif->spectator_count);
     printf(CLIENT_UI_SPECTATOR_JOINED_SEPARATOR);
-    printf(CLIENT_UI_SPECTATOR_JOINED_PROMPT);
     fflush(stdout);
 }
 

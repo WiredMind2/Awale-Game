@@ -25,6 +25,12 @@ void handle_accept_challenge(session_t* session, const char* challenger);
 /* Handle MSG_DECLINE_CHALLENGE - Decline a challenge */
 void handle_decline_challenge(session_t* session, const char* challenger);
 
+/* Handle MSG_CHALLENGE_ACCEPT - Accept a challenge by ID */
+void handle_challenge_accept(session_t* session, const msg_challenge_accept_t* accept_msg);
+
+/* Handle MSG_CHALLENGE_DECLINE - Decline a challenge by ID */
+void handle_challenge_decline(session_t* session, const msg_challenge_decline_t* decline_msg);
+
 /* Handle MSG_GET_CHALLENGES - Get list of pending challenges */
 void handle_get_challenges(session_t* session);
 
