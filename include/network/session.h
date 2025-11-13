@@ -25,6 +25,7 @@ error_code_t session_close(session_t* session);
 error_code_t session_send_message(session_t* session, message_type_t type, const void* payload, size_t payload_size);
 error_code_t session_recv_message(session_t* session, message_type_t* type, void* payload, size_t max_payload_size, size_t* actual_size);
 error_code_t session_recv_message_timeout(session_t* session, message_type_t* type, void* payload, size_t max_payload_size, size_t* actual_size, int timeout_ms);
+error_code_t session_peek_message_type(session_t* session, message_type_t* type, int timeout_ms);
 
 /* Convenience functions for specific messages */
 error_code_t session_send_error(session_t* session, error_code_t error, const char* msg);

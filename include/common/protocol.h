@@ -25,6 +25,7 @@ typedef enum {
     MSG_GET_BOARD,
     MSG_SURRENDER,
     MSG_LIST_GAMES,            /* List all ongoing games */
+    MSG_LIST_MY_GAMES,         /* List games for current player */
     MSG_SPECTATE_GAME,        /* Start spectating a game */
     MSG_STOP_SPECTATE,        /* Stop spectating */
     MSG_SET_BIO,              /* Set player bio */
@@ -46,11 +47,21 @@ typedef enum {
     MSG_GAME_OVER,
     MSG_CHALLENGE_LIST,
     MSG_GAME_LIST,            /* List of ongoing games */
+    MSG_MY_GAME_LIST,         /* List of player's games */
     MSG_SPECTATE_ACK,         /* Confirmation of spectate start */
     MSG_SPECTATOR_JOINED,     /* Notify players/spectators of new spectator */
     MSG_BIO_RESPONSE,         /* Bio data response */
     MSG_PLAYER_STATS          /* Player statistics response */
 } message_type_t;
+
+/* Notification message type filter */
+#define IS_NOTIFICATION_MESSAGE(type) \
+    ((type) == MSG_CHALLENGE_RECEIVED || \
+     (type) == MSG_GAME_STARTED || \
+     (type) == MSG_MOVE_RESULT || \
+     (type) == MSG_SPECTATOR_JOINED || \
+     (type) == MSG_GAME_OVER || \
+     (type) == MSG_CHAT_MESSAGE)
 
 /* Message header (fixed size for easy parsing) */
 typedef struct {

@@ -163,8 +163,13 @@ static error_code_t establish_connection(const char* pseudo, const char* server_
     message_type_t type;
     msg_connect_ack_t ack;
     size_t size;
-    
-    err = session_recv_message(session, &type, &ack, sizeof(ack), &size);
+
+    err = session_recv_message_timeout(session, &type, &ack, sizeof(ack), &size, 10000);  /* 10 second timeout */
+    if (err == ERR_TIMEOUT) {
+        client_log_error(CLIENT_LOG_TIMEOUT_SERVER);
+        connection_close(&session->conn);
+        return err;
+    }
     if (err != SUCCESS || type != MSG_CONNECT_ACK) {
         client_log_error(CLIENT_LOG_RECV_ACK_FAILED);
         connection_close(&session->conn);

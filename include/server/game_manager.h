@@ -53,6 +53,7 @@ int game_manager_count_active_games(game_manager_t* manager);
 int game_manager_count_player_games(game_manager_t* manager, const char* player);
 bool game_manager_is_player_in_game(game_manager_t* manager, const char* player);
 int game_manager_get_active_games(game_manager_t* manager, game_info_t* games_out, int max_games);
+int game_manager_get_player_games(game_manager_t* manager, const char* player, game_info_t* games_out, int max_games);
 
 /* Spectator management */
 error_code_t game_manager_add_spectator(game_manager_t* manager, const char* game_id, const char* spectator);

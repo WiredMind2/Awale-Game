@@ -273,6 +273,62 @@ error_code_t connection_recv_timeout(connection_t* conn, void* buffer, size_t si
     return SUCCESS;
 }
 
+error_code_t connection_recv_peek(connection_t* conn, void* buffer, size_t size, size_t* received, int timeout_ms) {
+    if (!conn || !buffer || size == 0) return ERR_INVALID_PARAM;
+    if (!conn->connected) return ERR_NETWORK_ERROR;
+
+    /* Set up select() with timeout */
+    fd_set read_fds;
+    struct timeval timeout;
+
+    FD_ZERO(&read_fds);
+    FD_SET(conn->socket_fd, &read_fds);
+
+    timeout.tv_sec = timeout_ms / 1000;
+    timeout.tv_usec = (timeout_ms % 1000) * 1000;
+
+    int ret = select(conn->socket_fd + 1, &read_fds, NULL, NULL, &timeout);
+
+    if (ret < 0) {
+        if (errno == EINTR) return ERR_NETWORK_ERROR;
+        conn->connected = false;  /* Mark as disconnected */
+        return ERR_NETWORK_ERROR;
+    }
+
+    if (ret == 0) {
+        /* Timeout occurred */
+        return ERR_TIMEOUT;
+    }
+
+    /* Data is available, proceed with peek */
+    char* ptr = (char*)buffer;
+    size_t remaining = size;
+    size_t total = 0;
+
+    while (remaining > 0) {
+        ssize_t n = recv(conn->socket_fd, ptr, remaining, MSG_PEEK);
+        if (n < 0) {
+            if (errno == EINTR) continue;
+            /* Network error - mark connection as closed */
+            conn->connected = false;
+            if (received) *received = total;
+            return ERR_NETWORK_ERROR;
+        }
+        if (n == 0) {
+            /* EOF / peer closed connection */
+            conn->connected = false;
+            if (received) *received = total;
+            return ERR_NETWORK_ERROR;
+        }
+        ptr += n;
+        remaining -= (size_t)n;
+        total += (size_t)n;
+    }
+
+    if (received) *received = total;
+    return SUCCESS;
+}
+
 /* Enable TCP keepalive to detect broken connections */
 error_code_t connection_enable_keepalive(connection_t* conn) {
     if (!conn || conn->socket_fd < 0) return ERR_INVALID_PARAM;

@@ -37,6 +37,9 @@ void handle_get_board(session_t* session, const msg_get_board_t* req);
 /* Handle MSG_LIST_GAMES - Get list of active games */
 void handle_list_games(session_t* session);
 
+/* Handle MSG_LIST_MY_GAMES - Get list of player's active games */
+void handle_list_my_games(session_t* session);
+
 /* Handle MSG_SPECTATE_GAME - Join as spectator for a game */
 void handle_spectate_game(session_t* session, const char* game_id);
 

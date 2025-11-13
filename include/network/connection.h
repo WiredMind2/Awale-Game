@@ -29,6 +29,7 @@ error_code_t connection_recv_raw(connection_t* conn, void* buffer, size_t size, 
 /* Send/receive with timeout */
 error_code_t connection_send_timeout(connection_t* conn, const void* data, size_t size, int timeout_ms);
 error_code_t connection_recv_timeout(connection_t* conn, void* buffer, size_t size, size_t* received, int timeout_ms);
+error_code_t connection_recv_peek(connection_t* conn, void* buffer, size_t size, size_t* received, int timeout_ms);
 
 /* Connection state */
 bool connection_is_connected(const connection_t* conn);

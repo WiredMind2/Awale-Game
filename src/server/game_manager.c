@@ -206,7 +206,7 @@ bool game_manager_is_player_in_game(game_manager_t* manager, const char* player)
 
 int game_manager_get_active_games(game_manager_t* manager, game_info_t* games_out, int max_games) {
     if (!manager || !games_out) return 0;
-    
+
     int count = 0;
     for (int i = 0; i < MAX_GAMES && count < max_games; i++) {
         if (manager->games[i].active) {
@@ -218,7 +218,27 @@ int game_manager_get_active_games(game_manager_t* manager, game_info_t* games_ou
             count++;
         }
     }
-    
+
+    return count;
+}
+
+int game_manager_get_player_games(game_manager_t* manager, const char* player, game_info_t* games_out, int max_games) {
+    if (!manager || !player || !games_out) return 0;
+
+    int count = 0;
+    for (int i = 0; i < MAX_GAMES && count < max_games; i++) {
+        if (manager->games[i].active &&
+            (strcmp(manager->games[i].player_a, player) == 0 ||
+             strcmp(manager->games[i].player_b, player) == 0)) {
+            snprintf(games_out[count].game_id, MAX_GAME_ID_LEN, "%s", manager->games[i].game_id);
+            snprintf(games_out[count].player_a, MAX_PSEUDO_LEN, "%s", manager->games[i].player_a);
+            snprintf(games_out[count].player_b, MAX_PSEUDO_LEN, "%s", manager->games[i].player_b);
+            games_out[count].spectator_count = manager->games[i].spectator_count;
+            games_out[count].state = manager->games[i].board.state;
+            count++;
+        }
+    }
+
     return count;
 }
 

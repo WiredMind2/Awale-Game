@@ -127,6 +127,9 @@ typedef struct {
     game_info_t games[50];  /* Max 50 games */
 } msg_game_list_t;
 
+/* MSG_LIST_MY_GAMES / MSG_MY_GAME_LIST - Same structure as game_list but for player's games */
+typedef msg_game_list_t msg_my_game_list_t;
+
 /* MSG_SPECTATE_GAME */
 typedef struct {
     char game_id[MAX_GAME_ID_LEN];

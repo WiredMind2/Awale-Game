@@ -200,6 +200,48 @@ error_code_t session_recv_message_timeout(session_t* session, message_type_t* ty
     return SUCCESS;
 }
 
+error_code_t session_peek_message_type(session_t* session, message_type_t* type, int timeout_ms) {
+    if (!session || !type) return ERR_INVALID_PARAM;
+
+    /* Check if connection is still alive */
+    if (!connection_is_connected(&session->conn)) {
+        session->authenticated = false;
+        return ERR_NETWORK_ERROR;
+    }
+
+    // Peek the header
+    message_header_t header;
+    size_t received;
+
+    error_code_t err = connection_recv_peek(&session->conn, &header, sizeof(header), &received, timeout_ms);
+    if (err != SUCCESS) {
+        if (err == ERR_NETWORK_ERROR) {
+            session->authenticated = false;
+        }
+        return err;
+    }
+    if (received != sizeof(header)) {
+        session->authenticated = false;
+        return ERR_NETWORK_ERROR;
+    }
+
+    // Convert from network byte order
+    header.type = ntohl(header.type);
+    header.length = ntohl(header.length);
+    header.sequence = ntohl(header.sequence);
+
+    /* Validate message header */
+    if (header.length > MAX_PAYLOAD_SIZE) {
+        session->authenticated = false;
+        return ERR_SERIALIZATION;
+    }
+
+    *type = (message_type_t)header.type;
+
+    // Do not touch activity since we didn't consume
+    return SUCCESS;
+}
+
 error_code_t session_send_error(session_t* session, error_code_t error, const char* msg) {
     if (!session) return ERR_INVALID_PARAM;
     

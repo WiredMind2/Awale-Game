@@ -152,8 +152,9 @@ static error_code_t receive_board(msg_board_state_t* board) {
             client_log_error(CLIENT_LOG_PROTOCOL_ERROR);
             return ERR_UNKNOWN;
         }
-        
-        /* Success */
+
+        /* Success - log board reception */
+        client_log_info(CLIENT_LOG_BOARD_RECEIVED);
         return SUCCESS;
     }
     
@@ -294,10 +295,67 @@ static void handle_user_input(play_state_t* state, const msg_board_state_t* boar
 
 void cmd_play_mode(void) {
     client_log_info(CLIENT_LOG_ENTERING_PLAY_MODE);
-    
+
     /* Get active games count */
     int game_count = active_games_count();
-    
+
+    /* If no local active games, query server for player's games */
+    if (game_count == 0) {
+        session_t* session = client_state_get_session();
+
+        client_log_info(CLIENT_LOG_LOADING_BOARD_STATE);  /* Reuse loading message */
+
+        error_code_t err = session_send_message(session, MSG_LIST_MY_GAMES, NULL, 0);
+        if (err != SUCCESS) {
+            client_log_error(CLIENT_LOG_ERROR_SENDING_REQUEST, error_to_string(err));
+            return;
+        }
+
+        message_type_t type;
+        msg_my_game_list_t list;
+        size_t size;
+
+        err = session_recv_message_timeout(session, &type, &list, sizeof(list), &size, 5000);
+        if (err == ERR_TIMEOUT) {
+            client_log_error(CLIENT_LOG_TIMEOUT_SERVER);
+            return;
+        }
+        if (err != SUCCESS || type != MSG_MY_GAME_LIST) {
+            client_log_error(CLIENT_LOG_ERROR_RECEIVING_RESPONSE);
+            return;
+        }
+
+        game_count = list.count;
+
+        /* Add server games to local active_games if not already present */
+        for (int i = 0; i < game_count; i++) {
+            bool already_exists = false;
+            for (int j = 0; j < active_games_count(); j++) {
+                active_game_t* existing = active_games_get(j);
+                if (existing && strcmp(existing->game_id, list.games[i].game_id) == 0) {
+                    already_exists = true;
+                    break;
+                }
+            }
+            if (!already_exists) {
+                /* Determine my side */
+                player_id_t my_side;
+                const char* my_pseudo = client_state_get_pseudo();
+                if (strcmp(list.games[i].player_a, my_pseudo) == 0) {
+                    my_side = PLAYER_A;
+                } else if (strcmp(list.games[i].player_b, my_pseudo) == 0) {
+                    my_side = PLAYER_B;
+                } else {
+                    continue;  /* Not my game */
+                }
+                active_games_add(list.games[i].game_id, list.games[i].player_a,
+                               list.games[i].player_b, my_side);
+            }
+        }
+
+        game_count = active_games_count();  /* Update count after adding */
+    }
+
     if (game_count == 0) {
         client_log_error(CLIENT_LOG_NO_ACTIVE_GAMES);
         client_log_info(CLIENT_LOG_USE_OPTION_2_FIRST);
@@ -527,9 +585,10 @@ void cmd_play_mode(void) {
             continue;
         }
     }
-    
-    /* Cleanup */
+
+    /* Cleanup - user explicitly exited, so remove from active games */
+    client_log_info(CLIENT_LOG_GAME_REMOVED_ON_EXIT, game_id_copy);
     active_games_remove(game_id_copy);
-    
+
     client_log_info(CLIENT_LOG_EXITING_PLAY_MODE);
 }

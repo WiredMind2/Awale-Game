@@ -25,11 +25,16 @@ void cmd_list_players(void) {
     if (err != SUCCESS) {
         client_log_error(CLIENT_LOG_ERROR_SENDING_REQUEST, error_to_string(err));
         return;
-    }    message_type_t type;
+    }
+    message_type_t type;
     msg_player_list_t list;
     size_t size;
-    
-    err = session_recv_message(session, &type, &list, sizeof(list), &size);
+
+    err = session_recv_message_timeout(session, &type, &list, sizeof(list), &size, 5000);
+    if (err == ERR_TIMEOUT) {
+        client_log_error(CLIENT_LOG_TIMEOUT_SERVER);
+        return;
+    }
     if (err != SUCCESS || type != MSG_PLAYER_LIST) {
         client_log_error(CLIENT_LOG_ERROR_RECEIVING_RESPONSE);
         return;
@@ -183,8 +188,12 @@ __attribute__((unused)) void cmd_set_bio(void)
     message_type_t type;
     char dummy[1];
     size_t size;
-    
-    err = session_recv_message(session, &type, dummy, sizeof(dummy), &size);
+
+    err = session_recv_message_timeout(session, &type, dummy, sizeof(dummy), &size, 5000);
+    if (err == ERR_TIMEOUT) {
+        client_log_error(CLIENT_LOG_TIMEOUT_SERVER);
+        return;
+    }
     if (err != SUCCESS) {
         client_log_error(CLIENT_LOG_ERROR_RECEIVING_RESPONSE);
         return;
@@ -230,8 +239,12 @@ __attribute__((unused)) void cmd_view_bio(void)
     message_type_t type;
     msg_bio_response_t response;
     size_t size;
-    
-    err = session_recv_message(session, &type, &response, sizeof(response), &size);
+
+    err = session_recv_message_timeout(session, &type, &response, sizeof(response), &size, 5000);
+    if (err == ERR_TIMEOUT) {
+        client_log_error(CLIENT_LOG_TIMEOUT_SERVER);
+        return;
+    }
     if (err != SUCCESS || type != MSG_BIO_RESPONSE) {
         client_log_error(CLIENT_LOG_ERROR_RECEIVING_RESPONSE);
         return;
@@ -276,8 +289,12 @@ __attribute__((unused)) void cmd_view_player_stats(void)
     message_type_t type;
     msg_player_stats_t response;
     size_t size;
-    
-    err = session_recv_message(session, &type, &response, sizeof(response), &size);
+
+    err = session_recv_message_timeout(session, &type, &response, sizeof(response), &size, 5000);
+    if (err == ERR_TIMEOUT) {
+        client_log_error(CLIENT_LOG_TIMEOUT_SERVER);
+        return;
+    }
     if (err != SUCCESS || type != MSG_PLAYER_STATS) {
         client_log_error(CLIENT_LOG_ERROR_RECEIVING_RESPONSE);
         return;
@@ -325,7 +342,7 @@ __attribute__((unused)) void cmd_chat(void)
     client_log_info(CLIENT_LOG_CHAT_MODE_INSTRUCTIONS2);
 
     /* Interactive chat loop */
-    while (1) {
+    while (client_state_is_running()) {
         client_log_info(CLIENT_LOG_CHAT_PROMPT);
         fflush(stdout);
 
@@ -361,27 +378,7 @@ __attribute__((unused)) void cmd_chat(void)
             continue;
         }
 
-        /* Wait for acknowledgment */
-        message_type_t type;
-        char response[MAX_MESSAGE_SIZE];
-        size_t size;
-
-        err = session_recv_message_timeout(session, &type, response, MAX_MESSAGE_SIZE, &size, 5000);
-        if (err == ERR_TIMEOUT) {
-            client_log_error(CLIENT_LOG_TIMEOUT_SERVER);
-            continue;
-        }
-        if (err != SUCCESS) {
-            client_log_error(CLIENT_LOG_ERROR_RECEIVING_RESPONSE_WITH_ERR, error_to_string(err));
-            continue;
-        }
-
-        if (type == MSG_ERROR) {
-            msg_error_t* error = (msg_error_t*)response;
-            ui_display_chat_error(error->error_msg);
-        } else {
-            /* Message sent successfully - the notification handler will show it */
-            /* Continue to next message */
-        }
+        /* Chat messages are handled asynchronously by the notification listener */
+        /* No response waiting needed - MSG_CHAT_MESSAGE will be displayed by notification handler */
     }
 }

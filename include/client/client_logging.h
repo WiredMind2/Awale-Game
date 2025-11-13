@@ -112,6 +112,10 @@
 #define CLIENT_LOG_GAME_OVER_SEPARATOR "═══════════════════════════════════════════════════\n"
 #define CLIENT_LOG_GAME_REMATCH_PROMPT "\nWould you like to challenge them again? (y/n): "
 #define CLIENT_LOG_MOVE_TIMEOUT "Move response timeout - refreshing board\n"
+#define CLIENT_LOG_UNEXPECTED_NOTIFICATION_TYPE "Notification listener received unexpected message type: %d\n"
+#define CLIENT_LOG_BOARD_RECEIVED "Board state received successfully\n"
+#define CLIENT_LOG_GAME_REMOVED_ON_EXIT "Removing game %s from active games on exit\n"
+#define CLIENT_LOG_GAME_LEFT_BUT_ACTIVE "Left game %s but keeping in active games (still exists)\n"
 #define CLIENT_LOG_EXITING_PLAY_MODE "\nExiting play mode...\n"
 
 /* Spectator mode logging constants */
@@ -152,6 +156,7 @@
 #define CLIENT_LOG_SPECTATOR_FAILED_REFRESH "Failed to refresh board\n"
 #define CLIENT_LOG_SPECTATOR_BOARD_UPDATED "\nBoard updated! Refreshing...\n"
 #define CLIENT_LOG_SPECTATOR_STOPPED "\nStopped spectating.\n"
+#define CLIENT_LOG_SPECTATOR_UNEXPECTED_MSG "Spectator mode received unexpected message type: %d (expected %d)\n"
 
 /* UI display constants */
 #define CLIENT_UI_BANNER_LINE1 "\n"
@@ -298,7 +303,6 @@
 #define CLIENT_UI_CHAT_MESSAGE_PROMPT "Your choice: "
 
 #define CLIENT_UI_CONNECTION_LOST "\n❌ Connection lost - server disconnected\n"
-#define CLIENT_UI_CONNECTION_LOST_HINT "Please restart the client to reconnect.\n"
 #define CLIENT_UI_NETWORK_ERROR "\n⚠️ Network error: %s (attempt %d/%d)\n"
 #define CLIENT_UI_NETWORK_ERROR_MAX "❌ Too many consecutive errors - disconnecting\n"
 

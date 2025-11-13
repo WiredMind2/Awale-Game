@@ -281,12 +281,24 @@ void handle_get_board(session_t* session, const msg_get_board_t* req) {
 void handle_list_games(session_t* session) {
     msg_game_list_t list;
     memset(&list, 0, sizeof(list));
-    
+
     list.count = game_manager_get_active_games(g_game_manager, list.games, 50);
-    
+
     /* Calculate actual size */
     size_t actual_size = sizeof(list.count) + (list.count * sizeof(game_info_t));
     session_send_message(session, MSG_GAME_LIST, &list, actual_size);
+}
+
+/* Handle MSG_LIST_MY_GAMES */
+void handle_list_my_games(session_t* session) {
+    msg_my_game_list_t list;
+    memset(&list, 0, sizeof(list));
+
+    list.count = game_manager_get_player_games(g_game_manager, session->pseudo, list.games, 50);
+
+    /* Calculate actual size */
+    size_t actual_size = sizeof(list.count) + (list.count * sizeof(game_info_t));
+    session_send_message(session, MSG_MY_GAME_LIST, &list, actual_size);
 }
 
 /* Handle MSG_SPECTATE_GAME */

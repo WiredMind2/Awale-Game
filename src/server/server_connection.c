@@ -142,6 +142,10 @@ void* client_handler(void* arg) {
             case MSG_LIST_GAMES:
                 handle_list_games(&session);
                 break;
+
+            case MSG_LIST_MY_GAMES:
+                handle_list_my_games(&session);
+                break;
                 
             case MSG_SPECTATE_GAME: {
                 msg_spectate_game_t* req = (msg_spectate_game_t*)payload;

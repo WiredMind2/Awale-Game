@@ -319,7 +319,6 @@ void ui_display_chat_message(const msg_chat_message_t* chat) {
 
 void ui_display_connection_lost(void) {
     printf(CLIENT_UI_CONNECTION_LOST);
-    printf(CLIENT_UI_CONNECTION_LOST_HINT);
 }
 
 void ui_display_network_error(const char* error, int attempt, int max) {
