@@ -1,5 +1,6 @@
 {
     "files.associations": {
-        "types.h": "c"
+        "types.h": "c",
+        "client_logging_strings_en.h": "c"
     }
 }

@@ -10,6 +10,18 @@ A modern, cross-platform implementation of Awale (Oware/Mancala) using C with a 
 - **Cross-Platform**: Works on Linux, macOS, and Windows (WSL)
 - **Thread-Safe**: Concurrent game support with proper synchronization
 - **Comprehensive Testing**: Automated unit tests for game logic and networking
+- **Internationalization**: Support for English and French languages
+
+## Language Support
+
+The client interface supports both English and French languages. To switch languages:
+
+1. Open `include/client/client_logging.h`
+2. Change the line `#define CURRENT_LANGUAGE LANGUAGE_EN` to `#define CURRENT_LANGUAGE LANGUAGE_FR` for French
+3. Rebuild the project: `make clean && make client`
+4. Run the client as usual
+
+Note: The language setting is compile-time and affects all client UI strings.
 
 ## Architecture
 

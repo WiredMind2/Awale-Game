@@ -40,7 +40,7 @@ void print_menu(void) {
     printf(CLIENT_UI_MENU_OPTION7);
     printf(CLIENT_UI_MENU_OPTION8);
     if (active > 0) {
-        printf(CLIENT_UI_MENU_ACTIVE, active, active > 1 ? "s" : "");
+        printf(CLIENT_UI_MENU_ACTIVE, active, active > 1 ? "s" : "", active > 1 ? "s" : "");
     }
     printf(CLIENT_UI_MENU_LINE6);
     printf(CLIENT_UI_MENU_OPTION9);
