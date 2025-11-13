@@ -13,6 +13,7 @@
 #include "../../include/client/client_ui.h"
 #include "../../include/client/client_commands.h"
 #include "../../include/client/client_notifications.h"
+#include "../../include/client/client_logging.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -25,10 +26,10 @@ static error_code_t establish_connection(const char* pseudo, const char* server_
 
 int main(int argc, char** argv) {
     if (argc < 2) {
-        printf("Usage: %s <pseudo> [-s server_ip]\n", argv[0]);
-        printf("  pseudo: Your player name\n");
-        printf("  -s <server_ip> : Optional - directly connect to server IP instead of UDP discovery\n");
-        printf("  If no server IP is provided the client will use UDP broadcast discovery.\n");
+        client_log_error(CLIENT_LOG_USAGE, argv[0]);
+        client_log_info(CLIENT_LOG_USAGE_PSEUDO);
+        client_log_info(CLIENT_LOG_USAGE_SERVER);
+        client_log_info(CLIENT_LOG_USAGE_DISCOVERY);
         return 1;
     }
 
@@ -50,13 +51,13 @@ int main(int argc, char** argv) {
         break;
     }
     if (!pseudo) {
-        printf("Il manque le pseudo. Usage: %s <pseudo> [-s server_ip]\n", argv[0]);
+        client_log_error(CLIENT_LOG_MISSING_PSEUDO, argv[0]);
         return 1;
     }
     
     print_banner();
     client_state_set_pseudo(pseudo);
-    printf("Joueur: %s\n", client_state_get_pseudo());
+    client_log_info(CLIENT_LOG_PLAYER_NAME, client_state_get_pseudo());
     
     /* Establish connection */
     session_t g_session;
@@ -69,7 +70,7 @@ int main(int argc, char** argv) {
     
     /* Start notification listener thread */
     pthread_t notif_thread = start_notification_listener();
-    printf("En attente de notification\n");
+    client_log_info(CLIENT_LOG_WAITING_NOTIFICATION);
     
     /* Main menu loop */
     client_state_set_running(true);
@@ -79,7 +80,7 @@ int main(int argc, char** argv) {
         int choice;
         if (scanf("%d", &choice) != 1) {
             clear_input();
-            printf("Entree invalide\n");
+            client_log_error(CLIENT_LOG_INVALID_INPUT);
             continue;
         }
         clear_input();
@@ -92,7 +93,7 @@ int main(int argc, char** argv) {
             case 5: cmd_view_bio(); break;
             case 6: cmd_view_player_stats(); break;
             case 7:
-                printf("\nDisconnecting...\n");
+                client_log_info(CLIENT_LOG_DISCONNECTING);
                 session_send_message(&g_session, MSG_DISCONNECT, NULL, 0);
                 client_state_set_running(false);
                 break;
@@ -100,7 +101,7 @@ int main(int argc, char** argv) {
             case 9: cmd_chat(); break;
             case 10: cmd_spectator_mode(); break;
             default:
-                printf("Invalid choice. Please select 1-10.\n");
+                client_log_warning(CLIENT_LOG_INVALID_CHOICE);
                 break;
         }
     }
@@ -108,7 +109,7 @@ int main(int argc, char** argv) {
     /* Cleanup */
     pthread_join(notif_thread, NULL);
     session_close(&g_session);
-    printf("Goodbye!\n\n");
+    client_log_info(CLIENT_LOG_GOODBYE);
     
     return 0;
 }
@@ -119,17 +120,17 @@ static error_code_t establish_connection(const char* pseudo, const char* server_
     error_code_t err = SUCCESS;
 
     if (server_ip == NULL) {
-        printf("Broadcasting discovery request on local network...\n");
+        client_log_info(CLIENT_LOG_BROADCAST_DISCOVERY);
         /* Step 1: UDP broadcast to discover server */
         err = connection_broadcast_discovery(&discovery, 5);
         if (err != SUCCESS) {
-            printf("No server found on local network\n");
+            client_log_error(CLIENT_LOG_NO_SERVER_FOUND);
             return err;
         }
-        printf("Server discovered at %s:%d\n", discovery.server_ip, discovery.discovery_port);
+        client_log_info(CLIENT_LOG_SERVER_DISCOVERED, discovery.server_ip, discovery.discovery_port);
     } else {
         /* Use provided server IP and default discovery port */
-        printf("Using provided server IP: %s\n", server_ip);
+        client_log_info(CLIENT_LOG_USING_PROVIDED_IP, server_ip);
         memset(&discovery, 0, sizeof(discovery));
         snprintf(discovery.server_ip, sizeof(discovery.server_ip), "%s", server_ip);
         discovery.discovery_port = 12345; /* default discovery port */
@@ -139,11 +140,11 @@ static error_code_t establish_connection(const char* pseudo, const char* server_
     connection_init(&session->conn);
     err = connection_connect(&session->conn, (server_ip != NULL) ? server_ip : discovery.server_ip, discovery.discovery_port);
     if (err != SUCCESS) {
-        printf("Failed to connect to server\n");
+        client_log_error(CLIENT_LOG_CONNECTION_FAILED);
         return err;
     }
     
-    printf("Connected to server at %s:%d\n", (server_ip != NULL) ? server_ip : discovery.server_ip, discovery.discovery_port);
+    client_log_info(CLIENT_LOG_CONNECTED, (server_ip != NULL) ? server_ip : discovery.server_ip, discovery.discovery_port);
 
     /* Send MSG_CONNECT */
     msg_connect_t connect_msg;
@@ -153,7 +154,7 @@ static error_code_t establish_connection(const char* pseudo, const char* server_
     
     err = session_send_message(session, MSG_CONNECT, &connect_msg, sizeof(connect_msg));
     if (err != SUCCESS) {
-        printf("Failed to send connect message\n");
+        client_log_error(CLIENT_LOG_SEND_CONNECT_FAILED);
         connection_close(&session->conn);
         return err;
     }
@@ -165,18 +166,18 @@ static error_code_t establish_connection(const char* pseudo, const char* server_
     
     err = session_recv_message(session, &type, &ack, sizeof(ack), &size);
     if (err != SUCCESS || type != MSG_CONNECT_ACK) {
-        printf("Failed to receive acknowledgment\n");
+        client_log_error(CLIENT_LOG_RECV_ACK_FAILED);
         connection_close(&session->conn);
         return ERR_NETWORK_ERROR;
     }
     
     if (!ack.success) {
-        printf("Connection rejected: %s\n", ack.message);
+        client_log_error(CLIENT_LOG_CONNECTION_REJECTED, ack.message);
         connection_close(&session->conn);
         return ERR_NETWORK_ERROR;
     }
     
-    printf("%s\n", ack.message);
+    client_log_info(CLIENT_LOG_CONNECTION_SUCCESS, ack.message);
     snprintf(session->session_id, sizeof(session->session_id), "%s", ack.session_id);
     session->authenticated = true;
     

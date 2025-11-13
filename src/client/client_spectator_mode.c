@@ -7,6 +7,7 @@
 #include "../../include/client/client_spectator_mode.h"
 #include "../../include/client/client_state.h"
 #include "../../include/client/client_ui.h"
+#include "../../include/client/client_logging.h"
 #include "../../include/common/messages.h"
 #include "../../include/common/protocol.h"
 #include "../../include/network/session.h"
@@ -17,14 +18,14 @@
 #include <sys/select.h>
 
 void cmd_spectator_mode(void) {
-    printf("\n=== SPECTATOR MODE ===\n");
-    printf("   SPECTATOR MODE\n");
-    printf("═══════════════════════════════════════════════════════\n\n");
+    client_log_info(CLIENT_LOG_SPECTATOR_MODE_HEADER);
+    client_log_info(CLIENT_LOG_SPECTATOR_MODE_TITLE);
+    client_log_info(CLIENT_LOG_SPECTATOR_MODE_SEPARATOR);
     
     /* Request list of active games */
     error_code_t err = session_send_message(client_state_get_session(), MSG_LIST_GAMES, NULL, 0);
     if (err != SUCCESS) {
-    printf("Failed to request game list\n");
+        client_log_error(CLIENT_LOG_FAILED_REQUEST_GAME_LIST);
         return;
     }
     
@@ -37,53 +38,53 @@ void cmd_spectator_mode(void) {
                                        sizeof(game_list), &size, 5000);
     
     if (err == ERR_TIMEOUT) {
-    printf("Timeout waiting for game list\n");
+        client_log_error(CLIENT_LOG_TIMEOUT_GAME_LIST);
         return;
     }
     
     if (err != SUCCESS || type != MSG_GAME_LIST) {
-    printf("Failed to receive game list\n");
+        client_log_error(CLIENT_LOG_FAILED_RECEIVE_GAME_LIST);
         return;
     }
     
     if (game_list.count == 0) {
-        printf("No games currently in progress.\n");
-        printf("\nPress Enter to continue...");
+        client_log_info(CLIENT_LOG_NO_GAMES_IN_PROGRESS);
+        client_log_info(CLIENT_LOG_PRESS_ENTER_CONTINUE);
         getchar();
         return;
     }
     
     /* Display available games */
-    printf("Available games to spectate:\n\n");
+    client_log_info(CLIENT_LOG_AVAILABLE_GAMES);
     for (int i = 0; i < game_list.count; i++) {
         game_info_t* game = &game_list.games[i];
-        printf("  %d. %s vs %s\n", i + 1, game->player_a, game->player_b);
-        printf("     Game ID: %s\n", game->game_id);
-        printf("     Spectators: %d\n", game->spectator_count);
-        printf("     State: ");
-        if (game->state == GAME_STATE_WAITING) printf("Waiting\n");
-        else if (game->state == GAME_STATE_IN_PROGRESS) printf("In Progress\n");
-        else if (game->state == GAME_STATE_FINISHED) printf("Finished\n");
-        printf("\n");
+        client_log_info(CLIENT_LOG_GAME_LIST_ITEM, i + 1, game->player_a, game->player_b);
+        client_log_info(CLIENT_LOG_GAME_ID, game->game_id);
+        client_log_info(CLIENT_LOG_SPECTATORS, game->spectator_count);
+        client_log_info(CLIENT_LOG_GAME_STATE);
+        if (game->state == GAME_STATE_WAITING) client_log_info(CLIENT_LOG_GAME_STATE_WAITING);
+        else if (game->state == GAME_STATE_IN_PROGRESS) client_log_info(CLIENT_LOG_GAME_STATE_IN_PROGRESS);
+        else if (game->state == GAME_STATE_FINISHED) client_log_info(CLIENT_LOG_GAME_STATE_FINISHED);
+        client_log_info(CLIENT_LOG_GAME_STATE_NEWLINE);
     }
     
     /* Get user selection */
-    printf("Select game to spectate (1-%d, 0 to cancel): ", game_list.count);
+    client_log_info(CLIENT_LOG_SELECT_GAME, game_list.count);
     int choice;
     if (scanf("%d", &choice) != 1) {
         clear_input();
-    printf("Invalid input\n");
+        client_log_error(CLIENT_LOG_INVALID_INPUT);
         return;
     }
     clear_input();
     
     if (choice == 0) {
-        printf("Cancelled.\n");
+        client_log_info(CLIENT_LOG_CANCELLED);
         return;
     }
     
     if (choice < 1 || choice > game_list.count) {
-    printf("Invalid game selection\n");
+        client_log_error(CLIENT_LOG_INVALID_GAME_SELECTION);
         return;
     }
     
@@ -95,7 +96,7 @@ void cmd_spectator_mode(void) {
     
     err = session_send_message(client_state_get_session(), MSG_SPECTATE_GAME, &spectate_req, sizeof(spectate_req));
     if (err != SUCCESS) {
-    printf("Failed to send spectate request\n");
+        client_log_error(CLIENT_LOG_SPECTATOR_FAILED_SEND_REQUEST);
         return;
     }
     
@@ -105,32 +106,32 @@ void cmd_spectator_mode(void) {
                                        sizeof(ack), &size, 5000);
     
     if (err == ERR_TIMEOUT) {
-    printf("Timeout waiting for spectate acknowledgment\n");
+        client_log_error(CLIENT_LOG_SPECTATOR_TIMEOUT_ACK);
         return;
     }
     
     if (err != SUCCESS || type != MSG_SPECTATE_ACK) {
-    printf("Failed to receive spectate acknowledgment\n");
+        client_log_error(CLIENT_LOG_SPECTATOR_FAILED_RECEIVE_ACK);
         return;
     }
     
     if (!ack.success) {
-    printf("Spectate request denied: %s\n", ack.message);
+        client_log_error(CLIENT_LOG_SPECTATOR_REQUEST_DENIED, ack.message);
         return;
     }
     
-    printf("%s\n", ack.message);
+    client_log_info(CLIENT_LOG_SPECTATOR_ACK_MESSAGE, ack.message);
     
     /* Set spectator state */
     spectator_state_set(selected_game->game_id, selected_game->player_a, selected_game->player_b);
     
     /* Spectator loop */
-    printf("\n=== GAME ===\n");
-    printf("   NOW SPECTATING: %s vs %s\n", selected_game->player_a, selected_game->player_b);
-    printf("═══════════════════════════════════════════════════════\n");
-    printf("\nCommands:\n");
-    printf("  'r' - Refresh board\n");
-    printf("  'q' - Stop spectating\n\n");
+    client_log_info(CLIENT_LOG_SPECTATOR_GAME_HEADER);
+    client_log_info(CLIENT_LOG_SPECTATOR_NOW_SPECTATING, selected_game->player_a, selected_game->player_b);
+    client_log_info(CLIENT_LOG_SPECTATOR_SEPARATOR);
+    client_log_info(CLIENT_LOG_SPECTATOR_COMMANDS);
+    client_log_info(CLIENT_LOG_SPECTATOR_COMMAND_REFRESH);
+    client_log_info(CLIENT_LOG_SPECTATOR_COMMAND_QUIT);
     
     /* Initial board request */
     msg_get_board_t board_req;
@@ -149,20 +150,20 @@ void cmd_spectator_mode(void) {
         board.scores[1] = board_state.score_b;  /* Player B */
         board.current_player = board_state.current_player;
         
-        printf("\n");
-        board_print(&board);
-        printf("\n");
-        printf("Score - %s: %d  |  %s: %d\n", 
+        client_log_info(CLIENT_LOG_SPECTATOR_NEWLINE);
+        ui_display_board_simple(&board);
+        client_log_info(CLIENT_LOG_SPECTATOR_NEWLINE);
+        client_log_info(CLIENT_LOG_SPECTATOR_SCORE_FORMAT,
                board_state.player_a, board_state.score_a,
                board_state.player_b, board_state.score_b);
         const char* current_str = (board_state.current_player == PLAYER_A) ? board_state.player_a : board_state.player_b;
-        printf("Current turn: %s\n", current_str);
-        printf("\n");
+        client_log_info(CLIENT_LOG_SPECTATOR_CURRENT_TURN, current_str);
+        client_log_info(CLIENT_LOG_SPECTATOR_NEWLINE);
     }
     
     bool spectating = true;
     while (spectating) {
-        printf("Spectator> ");
+        client_log_info(CLIENT_LOG_SPECTATOR_PROMPT);
         fflush(stdout);
         
         /* Wait for user input or board update with 30 second timeout */
@@ -199,17 +200,17 @@ void cmd_spectator_mode(void) {
                     board.scores[1] = board_state.score_b;  /* Player B */
                     board.current_player = board_state.current_player;
                     
-                    printf("\n");
-                    board_print(&board);
-                    printf("\n");
-                    printf("Score - %s: %d  |  %s: %d\n", 
+                    client_log_info(CLIENT_LOG_SPECTATOR_NEWLINE);
+                    ui_display_board_simple(&board);
+                    client_log_info(CLIENT_LOG_SPECTATOR_NEWLINE);
+                    client_log_info(CLIENT_LOG_SPECTATOR_SCORE_FORMAT,
                            board_state.player_a, board_state.score_a,
                            board_state.player_b, board_state.score_b);
                     const char* current_str = (board_state.current_player == PLAYER_A) ? board_state.player_a : board_state.player_b;
-                    printf("Current turn: %s\n", current_str);
-                    printf("\n");
+                    client_log_info(CLIENT_LOG_SPECTATOR_CURRENT_TURN, current_str);
+                    client_log_info(CLIENT_LOG_SPECTATOR_NEWLINE);
                 } else {
-                    printf("Failed to refresh board\n");
+                    client_log_error(CLIENT_LOG_SPECTATOR_FAILED_REFRESH);
                 }
             }
         }
@@ -218,7 +219,7 @@ void cmd_spectator_mode(void) {
         if (spectator_state_check_and_clear_updated()) {
             
             /* Auto-refresh board */
-            printf("\nBoard updated! Refreshing...\n");
+            client_log_info(CLIENT_LOG_SPECTATOR_BOARD_UPDATED);
             session_send_message(client_state_get_session(), MSG_GET_BOARD, &board_req, sizeof(board_req));
             
             err = session_recv_message_timeout(client_state_get_session(), &type, (char*)&board_state, 
@@ -231,15 +232,15 @@ void cmd_spectator_mode(void) {
                 board.scores[1] = board_state.score_b;  /* Player B */
                 board.current_player = board_state.current_player;
                 
-                printf("\n");
-                board_print(&board);
-                printf("\n");
-                printf("Score - %s: %d  |  %s: %d\n", 
+                client_log_info(CLIENT_LOG_SPECTATOR_NEWLINE);
+                ui_display_board_simple(&board);
+                client_log_info(CLIENT_LOG_SPECTATOR_NEWLINE);
+                client_log_info(CLIENT_LOG_SPECTATOR_SCORE_FORMAT,
                        board_state.player_a, board_state.score_a,
                        board_state.player_b, board_state.score_b);
                 const char* current_str = (board_state.current_player == PLAYER_A) ? board_state.player_a : board_state.player_b;
-                printf("Current turn: %s\n", current_str);
-                printf("\n");
+                client_log_info(CLIENT_LOG_SPECTATOR_CURRENT_TURN, current_str);
+                client_log_info(CLIENT_LOG_SPECTATOR_NEWLINE);
             }
         }
     }
@@ -252,5 +253,5 @@ void cmd_spectator_mode(void) {
     /* Clear spectator state */
     spectator_state_clear();
     
-    printf("\nStopped spectating.\n");
+    client_log_info(CLIENT_LOG_SPECTATOR_STOPPED);
 }

@@ -14,6 +14,7 @@
 #include "../../include/client/client_play_mode.h"
 #include "../../include/client/client_state.h"
 #include "../../include/client/client_ui.h"
+#include "../../include/client/client_logging.h"
 #include "../../include/common/messages.h"
 #include "../../include/common/protocol.h"
 #include "../../include/network/session.h"
@@ -99,11 +100,11 @@ static error_code_t request_board(const char* player_a, const char* player_b) {
     error_code_t err = session_send_message(client_state_get_session(), MSG_GET_BOARD, &board_req, sizeof(board_req));
     
     if (err == ERR_NETWORK_ERROR) {
-        printf("❌ Failed to send board request - connection lost\n");
+        client_log_error(CLIENT_LOG_FAILED_SEND_BOARD_REQUEST);
     } else if (err == ERR_TIMEOUT) {
-        printf("⚠️  Network slow - request timeout\n");
+        client_log_warning(CLIENT_LOG_NETWORK_SLOW);
     } else if (err != SUCCESS) {
-        printf("❌ Error sending board request: %s\n", error_to_string(err));
+        client_log_error(CLIENT_LOG_ERROR_SENDING_BOARD_REQUEST, error_to_string(err));
     }
     
     return err;
@@ -123,20 +124,20 @@ static error_code_t receive_board(msg_board_state_t* board) {
         if (err == ERR_TIMEOUT) {
             retries++;
             if (retries <= MAX_RETRIES) {
-                printf("⚠️  Server response timeout (attempt %d/%d) - retrying...\n", retries, MAX_RETRIES + 1);
+                client_log_warning(CLIENT_LOG_SERVER_RESPONSE_TIMEOUT, retries, MAX_RETRIES + 1);
                 continue;
             }
-            printf("❌ Server not responding after %d attempts\n", MAX_RETRIES + 1);
+            client_log_error(CLIENT_LOG_SERVER_NOT_RESPONDING, MAX_RETRIES + 1);
             return err;
         }
         
         if (err == ERR_NETWORK_ERROR) {
-            printf("❌ Connection lost - please restart client\n");
+            client_log_error(CLIENT_LOG_CONNECTION_LOST);
             return err;
         }
         
         if (err != SUCCESS) {
-            printf("❌ Error receiving board: %s\n", error_to_string(err));
+            client_log_error(CLIENT_LOG_ERROR_RECEIVING_BOARD, error_to_string(err));
             return err;
         }
         
@@ -144,11 +145,11 @@ static error_code_t receive_board(msg_board_state_t* board) {
             /* Unexpected message type - might be out of order */
             retries++;
             if (retries <= MAX_RETRIES) {
-                printf("⚠️  Unexpected message type %d (expected %d) - retrying...\n", type, MSG_BOARD_STATE);
+                client_log_warning(CLIENT_LOG_UNEXPECTED_MESSAGE_TYPE, type, MSG_BOARD_STATE);
                 /* Request board again */
                 return ERR_UNKNOWN;
             }
-            printf("❌ Protocol error - unexpected message type\n");
+            client_log_error(CLIENT_LOG_PROTOCOL_ERROR);
             return ERR_UNKNOWN;
         }
         
@@ -167,26 +168,17 @@ static void display_board(const msg_board_state_t* board, player_id_t my_side) {
         int start_pit = (my_side == PLAYER_A) ? 0 : 6;
         int end_pit = (my_side == PLAYER_A) ? 5 : 11;
         
-    printf("\nYOUR TURN!\n");
-        printf("   Legal moves: ");
-        
-        bool has_legal_move = false;
+        int legal_moves[6];
+        int count = 0;
         for (int i = start_pit; i <= end_pit; i++) {
             if (board->pits[i] > 0) {
-                printf("%d ", i);
-                has_legal_move = true;
+                legal_moves[count++] = i;
             }
         }
         
-        if (!has_legal_move) {
-            printf("(none)");
-        }
-        printf("\n");
-        printf("\nEnter pit number or 'm' for menu: ");
+        ui_display_turn_info(1, legal_moves, count);
     } else {
-        printf("\n⏳ Waiting for opponent...\n");
-        printf("   Type 'm' + Enter to return to main menu\n");
-        printf("> ");
+        ui_display_turn_info(0, NULL, 0);
     }
     fflush(stdout);
 }
@@ -201,10 +193,10 @@ static void handle_user_input(play_state_t* state, const msg_board_state_t* boar
     if (read_line(input, 32) == NULL || strlen(input) == 0) {
         /* Empty input - in IDLE state with our turn, just re-display prompt */
         if (*state == STATE_IDLE && board->current_player == my_side) {
-            printf("\nEnter pit number or 'm' for menu: ");
+            client_log_info(CLIENT_LOG_ENTER_PIT_OR_MENU);
             fflush(stdout);
         } else if (*state == STATE_IDLE) {
-            printf("> ");
+            client_log_info(CLIENT_LOG_PROMPT);
             fflush(stdout);
         }
         return;
@@ -212,7 +204,7 @@ static void handle_user_input(play_state_t* state, const msg_board_state_t* boar
     
     /* Check for menu command (works in any state) */
     if (input[0] == 'm' || input[0] == 'M') {
-        printf("Returning to main menu...\n");
+        client_log_info(CLIENT_LOG_RETURNING_TO_MENU);
         *state = STATE_EXIT;
         return;
     }
@@ -222,8 +214,8 @@ static void handle_user_input(play_state_t* state, const msg_board_state_t* boar
         case STATE_IDLE:
             if (board->current_player != my_side) {
                 /* Not our turn - ignore pit numbers */
-                printf("Not your turn - waiting for opponent\n");
-                printf("> ");
+                client_log_info(CLIENT_LOG_NOT_YOUR_TURN);
+                client_log_info(CLIENT_LOG_PROMPT);
                 fflush(stdout);
                 return;
             }
@@ -235,15 +227,15 @@ static void handle_user_input(play_state_t* state, const msg_board_state_t* boar
             
             /* Validate pit */
             if (pit < start_pit || pit > end_pit) {
-                printf("Invalid pit! Choose from %d-%d\n", start_pit, end_pit);
-                printf("\nEnter pit number or 'm' for menu: ");
+                client_log_error(CLIENT_LOG_INVALID_PIT, start_pit, end_pit);
+                client_log_info(CLIENT_LOG_ENTER_PIT_OR_MENU);
                 fflush(stdout);
                 return;
             }
             
             if (board->pits[pit] == 0) {
-                printf("That pit is empty!\n");
-                printf("\nEnter pit number or 'm' for menu: ");
+                client_log_error(CLIENT_LOG_PIT_EMPTY);
+                client_log_info(CLIENT_LOG_ENTER_PIT_OR_MENU);
                 fflush(stdout);
                 return;
             }
@@ -258,24 +250,24 @@ static void handle_user_input(play_state_t* state, const msg_board_state_t* boar
             error_code_t err = session_send_message(client_state_get_session(), MSG_PLAY_MOVE, 
                                                     &move, sizeof(move));
             if (err != SUCCESS) {
-                printf("Error sending move: %s\n", error_to_string(err));
-                printf("\nEnter pit number or 'm' for menu: ");
+                client_log_error(CLIENT_LOG_ERROR_SENDING_MOVE, error_to_string(err));
+                client_log_info(CLIENT_LOG_ENTER_PIT_OR_MENU);
                 fflush(stdout);
                 return;
             }
             
-            printf("⏳ Move sent...\n");
+            client_log_info(CLIENT_LOG_MOVE_SENT);
             *state = STATE_MOVE_SENT;
             break;
             
         case STATE_MOVE_SENT:
             /* Waiting for move result - ignore input except 'm' (handled above) */
-            printf("⏳ Please wait for move to be processed...\n");
+            client_log_info(CLIENT_LOG_WAIT_FOR_MOVE_PROCESS);
             break;
             
         case STATE_WAITING_BOARD:
             /* Waiting for board - ignore input except 'm' (handled above) */
-            printf("⏳ Loading board state...\n");
+            client_log_info(CLIENT_LOG_LOADING_BOARD_STATE);
             break;
             
         case STATE_GAME_OVER:
@@ -290,7 +282,7 @@ static void handle_user_input(play_state_t* state, const msg_board_state_t* boar
                 
                 session_send_message(client_state_get_session(), MSG_CHALLENGE, 
                                    &challenge, sizeof(challenge));
-                printf("✓ Challenge sent to %s!\n", opponent);
+                client_log_info(CLIENT_LOG_CHALLENGE_SENT_TO, opponent);
             }
             *state = STATE_EXIT;
             break;
@@ -301,14 +293,14 @@ static void handle_user_input(play_state_t* state, const msg_board_state_t* boar
 }
 
 void cmd_play_mode(void) {
-    printf("\nENTERING PLAY MODE\n");
+    client_log_info(CLIENT_LOG_ENTERING_PLAY_MODE);
     
     /* Get active games count */
     int game_count = active_games_count();
     
     if (game_count == 0) {
-        printf("❌ No active games found\n");
-    printf("Use option 2 to challenge a player first!\n");
+        client_log_error(CLIENT_LOG_NO_ACTIVE_GAMES);
+        client_log_info(CLIENT_LOG_USE_OPTION_2_FIRST);
         return;
     }
     
@@ -318,36 +310,36 @@ void cmd_play_mode(void) {
     if (game_count == 1) {
         /* Auto-select single game */
         selected_game = active_games_get(0);
-        printf("✓ Selected your active game:\n");
-        printf("   %s vs %s\n", selected_game->player_a, selected_game->player_b);
+        client_log_info(CLIENT_LOG_SELECTED_ACTIVE_GAME);
+        client_log_info(CLIENT_LOG_GAME_VS_FORMAT, selected_game->player_a, selected_game->player_b);
     } else {
         /* Show game selection menu */
-        printf("\nYou have %d active games:\n", game_count);
-        printf("═══════════════════════════════════════════════════\n");
+        client_log_info(CLIENT_LOG_ACTIVE_GAMES_COUNT, game_count);
+        client_log_info(CLIENT_LOG_GAME_LIST_SEPARATOR);
         for (int i = 0; i < game_count; i++) {
             active_game_t* game = active_games_get(i);
             if (game) {
-                printf("  %d. %s vs %s\n", i + 1, game->player_a, game->player_b);
+                client_log_info(CLIENT_LOG_GAME_LIST_ITEM, i + 1, game->player_a, game->player_b);
             }
         }
-        printf("═══════════════════════════════════════════════════\n");
-        printf("Select game (1-%d) or 0 to cancel: ", game_count);
+        client_log_info(CLIENT_LOG_GAME_LIST_SEPARATOR);
+        client_log_info(CLIENT_LOG_SELECT_GAME_PROMPT, game_count);
         
         int choice;
         if (scanf("%d", &choice) != 1) {
             clear_input();
-            printf("❌ Invalid input\n");
+            client_log_error(CLIENT_LOG_INVALID_INPUT);
             return;
         }
         clear_input();
         
         if (choice == 0) {
-            printf("Cancelled.\n");
+            client_log_info(CLIENT_LOG_CANCELLED);
             return;
         }
         
         if (choice < 1 || choice > game_count) {
-            printf("❌ Invalid choice\n");
+            client_log_error(CLIENT_LOG_INVALID_CHOICE);
             return;
         }
         
@@ -355,7 +347,7 @@ void cmd_play_mode(void) {
     }
     
     if (!selected_game) {
-        printf("❌ Failed to select game\n");
+        client_log_error(CLIENT_LOG_FAILED_SELECT_GAME);
         return;
     }
     
@@ -376,10 +368,10 @@ void cmd_play_mode(void) {
     active_games_clear_notifications();
     clear_input();
     
-    printf("\n═══════════════════════════════════════════════════\n");
-    printf("    PLAY MODE ACTIVE (Event-Driven)\n");
-    printf("    Press 'm' + Enter to return to main menu\n");
-    printf("═══════════════════════════════════════════════════\n\n");
+    client_log_info(CLIENT_LOG_PLAY_MODE_HEADER);
+    client_log_info(CLIENT_LOG_PLAY_MODE_ACTIVE);
+    client_log_info(CLIENT_LOG_PLAY_MODE_RETURN_HINT);
+    client_log_info(CLIENT_LOG_PLAY_MODE_FOOTER);
     
     int notification_fd = active_games_get_notification_fd();
     bool should_request_board = true;
@@ -393,7 +385,7 @@ void cmd_play_mode(void) {
         if (state == STATE_INIT) {
             error_code_t err = request_board(player_a_copy, player_b_copy);
             if (err != SUCCESS) {
-                printf("❌ Error requesting initial board: %s\n", error_to_string(err));
+                client_log_error(CLIENT_LOG_ERROR_REQUESTING_INITIAL_BOARD, error_to_string(err));
                 break;
             }
             state = STATE_WAITING_BOARD;
@@ -405,9 +397,9 @@ void cmd_play_mode(void) {
         if (should_request_board) {
             error_code_t err = request_board(player_a_copy, player_b_copy);
             if (err != SUCCESS) {
-                printf("❌ Error requesting board: %s\n", error_to_string(err));
+                client_log_error(CLIENT_LOG_ERROR_REQUESTING_BOARD, error_to_string(err));
                 if (err == ERR_NETWORK_ERROR) {
-                    printf("❌ Connection lost\n");
+                    client_log_error(CLIENT_LOG_CONNECTION_LOST_SHORT);
                     break;
                 }
                 continue;
@@ -430,7 +422,7 @@ void cmd_play_mode(void) {
             
             if (err == ERR_NETWORK_ERROR) {
                 /* Connection lost */
-                printf("❌ Connection lost\n");
+                client_log_error(CLIENT_LOG_CONNECTION_LOST_SHORT);
                 break;
             }
             
@@ -443,26 +435,26 @@ void cmd_play_mode(void) {
             
             /* Board received successfully */
             if (!board.exists) {
-                printf("❌ Game no longer exists\n");
+                client_log_error(CLIENT_LOG_GAME_NO_LONGER_EXISTS);
                 active_games_remove(game_id_copy);
                 break;
             }
             
             /* Check if game is over */
             if (board.state == GAME_STATE_FINISHED) {
-            printf("\n=== GAME OVER ===\n");
-                printf("   GAME FINISHED!\n");
+                client_log_info(CLIENT_LOG_GAME_OVER_HEADER);
+                client_log_info(CLIENT_LOG_GAME_FINISHED);
                 if (board.winner == WINNER_A) {
-                    printf("   Winner: %s (Score: %d)\n", board.player_a, board.score_a);
-                    printf("   Player B: %s (Score: %d)\n", board.player_b, board.score_b);
+                    client_log_info(CLIENT_LOG_GAME_WINNER, board.player_a, board.score_a);
+                    client_log_info(CLIENT_LOG_GAME_PLAYER_B, board.player_b, board.score_b);
                 } else if (board.winner == WINNER_B) {
-                    printf("   Winner: %s (Score: %d)\n", board.player_b, board.score_b);
-                    printf("   Player A: %s (Score: %d)\n", board.player_a, board.score_a);
+                    client_log_info(CLIENT_LOG_GAME_WINNER, board.player_b, board.score_b);
+                    client_log_info(CLIENT_LOG_GAME_PLAYER_A, board.player_a, board.score_a);
                 } else {
-                    printf("   Draw! (%d - %d)\n", board.score_a, board.score_b);
+                    client_log_info(CLIENT_LOG_GAME_DRAW, board.score_a, board.score_b);
                 }
-                printf("═══════════════════════════════════════════════════\n");
-                printf("\nWould you like to challenge them again? (y/n): ");
+                client_log_info(CLIENT_LOG_GAME_OVER_SEPARATOR);
+                client_log_info(CLIENT_LOG_GAME_REMATCH_PROMPT);
                 fflush(stdout);
                 
                 state = STATE_GAME_OVER;
@@ -490,7 +482,7 @@ void cmd_play_mode(void) {
             
             if (event == EVENT_TIMEOUT) {
                 /* Timeout waiting for move result - request board to re-sync */
-                printf("Move response timeout - refreshing board\n");
+                client_log_info(CLIENT_LOG_MOVE_TIMEOUT);
                 should_request_board = true;
                 state = STATE_INIT;
                 continue;
@@ -539,5 +531,5 @@ void cmd_play_mode(void) {
     /* Cleanup */
     active_games_remove(game_id_copy);
     
-    printf("\nExiting play mode...\n");
+    client_log_info(CLIENT_LOG_EXITING_PLAY_MODE);
 }

@@ -36,8 +36,4 @@ bool board_is_opponent_pit(int pit_index, player_id_t player);
 int board_get_pit_start(player_id_t player);
 int board_get_pit_end(player_id_t player);
 
-/* Debug and display */
-void board_print(const board_t* board);
-void board_print_detailed(const board_t* board, const char* player_a_name, const char* player_b_name);
-
 #endif /* BOARD_H */

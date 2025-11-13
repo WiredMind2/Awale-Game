@@ -46,16 +46,13 @@ void* notification_listener(void* arg) {
             if (client_state_is_running()) {
                 if (err == ERR_NETWORK_ERROR) {
                     /* Connection is broken */
-                    printf("\n❌ Connection lost - server disconnected\n");
-                    printf("Please restart the client to reconnect.\n");
+                    ui_display_connection_lost();
                     break;
                 } else {
                     /* Other error - log and retry */
-                    printf("\n⚠️ Network error: %s (attempt %d/%d)\n", 
-                           error_to_string(err), consecutive_errors, MAX_CONSECUTIVE_ERRORS);
+                    ui_display_network_error(error_to_string(err), consecutive_errors, MAX_CONSECUTIVE_ERRORS);
                     
                     if (consecutive_errors >= MAX_CONSECUTIVE_ERRORS) {
-                        printf("❌ Too many consecutive errors - disconnecting\n");
                         break;
                     }
                     
@@ -75,28 +72,14 @@ void* notification_listener(void* arg) {
         if (type == MSG_CHALLENGE_RECEIVED) {
             msg_challenge_received_t* notif = (msg_challenge_received_t*)payload;
             pending_challenges_add(notif->from, notif->challenge_id);
-            printf("\n\n=== NOTIFICATIONS ===\n");
-            printf("   CHALLENGE RECEIVED!\n");
-            printf("   %s\n", notif->message);
-            printf("   Use option 3 to accept or decline this challenge\n");
-            printf("═══════════════════════════════════════════════════\n");
-            printf("Your choice: ");
-            fflush(stdout);
+            ui_display_challenge_received(notif);
         } else if (type == MSG_GAME_STARTED) {
             msg_game_started_t* start = (msg_game_started_t*)payload;
             
             /* Add to active games */
             active_games_add(start->game_id, start->player_a, start->player_b, start->your_side);
             
-            printf("\n\n=== GAME ===\n");
-            printf("   GAME STARTED!\n");
-            printf("   Game ID: %s\n", start->game_id);
-            printf("   Players: %s vs %s\n", start->player_a, start->player_b);
-            printf("   You are: %s\n", (start->your_side == PLAYER_A) ? "Player A" : "Player B");
-            printf("   Use option 7 to enter play mode\n");
-            printf("═══════════════════════════════════════════════════\n");
-            printf("Your choice: ");
-            fflush(stdout);
+            ui_display_game_started(start);
         } else if (type == MSG_MOVE_RESULT) {
             /* Notify that a move happened */
             active_games_notify_turn();
@@ -107,34 +90,14 @@ void* notification_listener(void* arg) {
             }
         } else if (type == MSG_SPECTATOR_JOINED) {
             msg_spectator_joined_t* notif = (msg_spectator_joined_t*)payload;
-            printf("\n\n=== SPECTATOR ===\n");
-            printf("   SPECTATOR JOINED: %s\n", notif->spectator);
-            printf("   Game ID: %s\n", notif->game_id);
-            printf("   Total spectators: %d\n", notif->spectator_count);
-            printf("═══════════════════════════════════════════════════\n");
-            printf("Your choice: ");
-            fflush(stdout);
+            ui_display_spectator_joined(notif);
         } else if (type == MSG_GAME_OVER) {
             msg_game_over_t* game_over = (msg_game_over_t*)payload;
             active_games_remove(game_over->game_id);
-            printf("\n\n=== GAME OVER ===\n");
-            printf("   GAME OVER!\n");
-            printf("   %s\n", game_over->message);
-            printf("═══════════════════════════════════════════════════\n");
-            printf("Your choice: ");
-            fflush(stdout);
+            ui_display_game_over(game_over);
         } else if (type == MSG_CHAT_MESSAGE) {
             msg_chat_message_t* chat = (msg_chat_message_t*)payload;
-            printf("\n\n=== CHAT ===\n");
-            if (strlen(chat->recipient) == 0) {
-                printf("   GLOBAL CHAT from %s:\n", chat->sender);
-            } else {
-                printf("   PRIVATE MESSAGE from %s:\n", chat->sender);
-            }
-            printf("   %s\n", chat->message);
-            printf("═══════════════════════════════════════════════════\n");
-            printf("Your choice: ");
-            fflush(stdout);
+            ui_display_chat_message(chat);
         }
     }
     
