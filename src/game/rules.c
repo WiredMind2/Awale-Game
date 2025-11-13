@@ -112,9 +112,9 @@ error_code_t rules_simulate_move(const board_t* board, player_id_t player, int p
 
 bool rules_check_win_condition(const board_t* board, winner_t* winner) {
     if (!board || !winner) return false;
-    
+
     *winner = NO_WINNER;
-    
+
     // Check if either player has won by score
     if (board->scores[0] >= WIN_SCORE) {
         *winner = WINNER_A;
@@ -124,31 +124,66 @@ bool rules_check_win_condition(const board_t* board, winner_t* winner) {
         *winner = WINNER_B;
         return true;
     }
-    
+
     // Check if both sides are empty
     bool a_empty = board_is_side_empty(board, PLAYER_A);
     bool b_empty = board_is_side_empty(board, PLAYER_B);
-    
+
     if (a_empty && b_empty) {
         *winner = board_get_winner(board);
         return true;
     }
-    
+
+    // Check if current player can't move and can't be fed
+    if (!rules_can_player_move(board, board->current_player)) {
+        player_id_t opp = (board->current_player == PLAYER_A) ? PLAYER_B : PLAYER_A;
+        if (!rules_can_feed(board, opp, board->current_player)) {
+            *winner = board_get_winner(board);
+            return true;
+        }
+    }
+
     return false;
 }
 
 bool rules_can_player_move(const board_t* board, player_id_t player) {
     if (!board) return false;
-    
+
     int start = board_get_pit_start(player);
     int end = board_get_pit_end(player);
-    
+
     for (int i = start; i <= end; i++) {
         if (board->pits[i] > 0) {
             return true;
         }
     }
-    
+
+    return false;
+}
+
+bool rules_can_feed(const board_t* board, player_id_t feeder, player_id_t feedee) {
+    if (!board) return false;
+
+    int start = board_get_pit_start(feeder);
+    int end = board_get_pit_end(feeder);
+    int feedee_start = board_get_pit_start(feedee);
+    int feedee_end = board_get_pit_end(feedee);
+
+    for (int i = start; i <= end; i++) {
+        if (board->pits[i] == 0) continue;
+
+        board_t sim_board;
+        int captured;
+        if (rules_simulate_move(board, feeder, i, &sim_board, &captured) != SUCCESS) continue;
+
+        // Check if any pit in feedee's side has more seeds than original
+        for (int j = feedee_start; j <= feedee_end; j++) {
+            if (sim_board.pits[j] > board->pits[j]) {
+                return true;
+            }
+        }
+    }
+
     return false;
 }
 

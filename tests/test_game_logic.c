@@ -207,20 +207,21 @@ TEST(board_game_end_scenarios) {
         board.pits[i] = 0;
     }
     assert(board_is_game_over(&board) == true);
-    assert(board_get_winner(&board) == NO_WINNER);
+    assert(board_get_winner(&board) == DRAW);
     
     /* Test starvation condition */
     board_init(&board);
     board.scores[PLAYER_A] = 20;
-    board.scores[PLAYER_B] = 15;
+    board.scores[PLAYER_B] = 16;
     /* Player A has no seeds left */
     for (int i = 0; i < 6; i++) {
         board.pits[i] = 0;
     }
     /* Player B has seeds but can't feed A */
-    for (int i = 6; i < 12; i++) {
-        board.pits[i] = 1; /* Each has 1 seed */
+    for (int i = 6; i < 11; i++) {
+        board.pits[i] = 1; /* Pits 6-10 have 1 seed */
     }
+    board.pits[11] = 0; /* Pit 11 empty so can't feed */
     assert(board_is_game_over(&board) == true);
     assert(board_get_winner(&board) == WINNER_B);
 }

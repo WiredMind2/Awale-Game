@@ -25,6 +25,9 @@ error_code_t rules_simulate_move(const board_t* board, player_id_t player, int p
 bool rules_check_win_condition(const board_t* board, winner_t* winner);
 bool rules_can_player_move(const board_t* board, player_id_t player);
 
+/* Check if a player can feed another player */
+bool rules_can_feed(const board_t* board, player_id_t feeder, player_id_t feedee);
+
 /* Helper for sowing mechanics */
 int rules_sow_seeds(board_t* board, int start_pit, int seeds, bool skip_origin);
 

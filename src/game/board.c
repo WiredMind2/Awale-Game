@@ -40,30 +40,22 @@ error_code_t board_copy(const board_t* src, board_t* dest) {
 
 bool board_is_game_over(const board_t* board) {
     if (!board) return false;
-    
-    // Check if either player has won
-    if (board->scores[0] >= WIN_SCORE || board->scores[1] >= WIN_SCORE) {
+
+    winner_t winner;
+    if (rules_check_win_condition(board, &winner)) {
         return true;
     }
-    
-    // Check if either side is completely empty
-    bool side_a_empty = board_is_side_empty(board, PLAYER_A);
-    bool side_b_empty = board_is_side_empty(board, PLAYER_B);
-    
-    if (side_a_empty || side_b_empty) {
-        return true;
-    }
-    
+
     return board->state == GAME_STATE_FINISHED || board->state == GAME_STATE_ABANDONED;
 }
 
 winner_t board_get_winner(const board_t* board) {
     if (!board) return NO_WINNER;
-    
+
     if (!board_is_game_over(board)) {
         return NO_WINNER;
     }
-    
+
     /* When the game ends due to starvation (one side empty), the remaining
      * seeds on the board belong to the side that still has seeds. To decide
      * the winner consistently we compute the final totals as current score
@@ -77,7 +69,7 @@ winner_t board_get_winner(const board_t* board) {
     } else if (total_b > total_a) {
         return WINNER_B;
     } else {
-        return NO_WINNER;
+        return DRAW;
     }
 }
 
@@ -145,12 +137,10 @@ error_code_t board_execute_move(board_t* board, player_id_t player, int pit_inde
     // handled by end-of-game logic (both sides empty or explicit game end).
     
     // Check for game over
-    if (board->scores[0] >= WIN_SCORE || board->scores[1] >= WIN_SCORE) {
+    winner_t winner;
+    if (rules_check_win_condition(board, &winner)) {
         board->state = GAME_STATE_FINISHED;
-        board->winner = board_get_winner(board);
-    } else if (board_is_side_empty(board, PLAYER_A) && board_is_side_empty(board, PLAYER_B)) {
-        board->state = GAME_STATE_FINISHED;
-        board->winner = board_get_winner(board);
+        board->winner = winner;
     }
     
     // Switch turn
