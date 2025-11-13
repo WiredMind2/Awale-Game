@@ -92,14 +92,14 @@ int main(int argc, char** argv) {
             case 4: cmd_set_bio(); break;
             case 5: cmd_view_bio(); break;
             case 6: cmd_view_player_stats(); break;
-            case 7:
+            case 7: cmd_play_mode(); break;
+            case 8: cmd_chat(); break;
+            case 9: cmd_spectator_mode(); break;
+            case 10:
                 client_log_info(CLIENT_LOG_DISCONNECTING);
                 session_send_message(&g_session, MSG_DISCONNECT, NULL, 0);
                 client_state_set_running(false);
                 break;
-            case 8: cmd_play_mode(); break;
-            case 9: cmd_chat(); break;
-            case 10: cmd_spectator_mode(); break;
             default:
                 client_log_warning(CLIENT_LOG_INVALID_CHOICE);
                 break;
