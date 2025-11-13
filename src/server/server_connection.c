@@ -195,6 +195,34 @@ void* client_handler(void* arg) {
                 break;
             }
 
+            case MSG_ADD_FRIEND: {
+                msg_add_friend_t* add_msg = (msg_add_friend_t*)payload;
+                handle_add_friend(&session, add_msg);
+                break;
+            }
+
+            case MSG_REMOVE_FRIEND: {
+                msg_remove_friend_t* remove_msg = (msg_remove_friend_t*)payload;
+                handle_remove_friend(&session, remove_msg);
+                break;
+            }
+
+            case MSG_LIST_FRIENDS:
+                handle_list_friends(&session);
+                break;
+
+            case MSG_LIST_SAVED_GAMES: {
+                msg_list_saved_games_t* req = (msg_list_saved_games_t*)payload;
+                handle_list_saved_games(&session, req);
+                break;
+            }
+
+            case MSG_VIEW_SAVED_GAME: {
+                msg_view_saved_game_t* req = (msg_view_saved_game_t*)payload;
+                handle_view_saved_game(&session, req);
+                break;
+            }
+
             case MSG_DISCONNECT:
                 printf("Client %s requested disconnect\n", session.pseudo);
                 goto cleanup;

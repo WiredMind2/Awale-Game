@@ -22,6 +22,7 @@ void cmd_spectator_mode(void) {
     client_log_info(CLIENT_LOG_SPECTATOR_MODE_HEADER);
     client_log_info(CLIENT_LOG_SPECTATOR_MODE_TITLE);
     client_log_info(CLIENT_LOG_SPECTATOR_MODE_SEPARATOR);
+    client_log_info(CLIENT_LOG_SPECTATOR_MODE_INFO);
     
     /* Request list of active games */
     error_code_t err = session_send_message(client_state_get_session(), MSG_LIST_GAMES, NULL, 0);

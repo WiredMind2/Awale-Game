@@ -9,7 +9,7 @@
 #define CLIENT_LOG_MISSING_PSEUDO "Il manque le pseudo. Usage: %s <pseudo> [-s server_ip]\n"
 #define CLIENT_LOG_PLAYER_NAME "Joueur: %s\n"
 #define CLIENT_LOG_WAITING_NOTIFICATION "En attente de notification\n"
-#define CLIENT_LOG_INVALID_CHOICE "Invalid choice. Please select 1-10.\n"
+#define CLIENT_LOG_INVALID_CHOICE "Invalid choice. Please select 1-13.\n"
 #define CLIENT_LOG_DISCONNECTING "Disconnecting...\n"
 #define CLIENT_LOG_GOODBYE "Goodbye!\n\n"
 #define CLIENT_LOG_BROADCAST_DISCOVERY "Broadcasting discovery request on local network...\n"
@@ -112,9 +112,10 @@
 #define CLIENT_LOG_EXITING_PLAY_MODE "\nExiting play mode...\n"
 
 /* Spectator mode logging constants */
-#define CLIENT_LOG_SPECTATOR_MODE_HEADER "\n=== SPECTATOR MODE ===\n"
-#define CLIENT_LOG_SPECTATOR_MODE_TITLE "   SPECTATOR MODE\n"
+#define CLIENT_LOG_SPECTATOR_MODE_HEADER "\n=== PRIVATE SPECTATOR MODE ===\n"
+#define CLIENT_LOG_SPECTATOR_MODE_TITLE "   PRIVATE SPECTATOR MODE\n"
 #define CLIENT_LOG_SPECTATOR_MODE_SEPARATOR "═══════════════════════════════════════════════════════\n\n"
+#define CLIENT_LOG_SPECTATOR_MODE_INFO "   Note: You can only spectate games where you are friends with at least one player.\n\n"
 #define CLIENT_LOG_FAILED_REQUEST_GAME_LIST "Failed to request game list\n"
 #define CLIENT_LOG_TIMEOUT_GAME_LIST "Timeout waiting for game list\n"
 #define CLIENT_LOG_FAILED_RECEIVE_GAME_LIST "Failed to receive game list\n"
@@ -175,7 +176,10 @@
 #define CLIENT_UI_MENU_ACTIVE " [%d active game%s]"
 #define CLIENT_UI_MENU_LINE6 "\n"
 #define CLIENT_UI_MENU_OPTION9 "  9. Spectator mode\n"
-#define CLIENT_UI_MENU_OPTION10 "  10. Quit\n"
+#define CLIENT_UI_MENU_OPTION10 "  10. Friend management\n"
+#define CLIENT_UI_MENU_OPTION11 "  11. List saved games\n"
+#define CLIENT_UI_MENU_OPTION12 "  12. View saved game\n"
+#define CLIENT_UI_MENU_OPTION13 "  13. Quit\n"
 #define CLIENT_UI_MENU_LINE7 "═════════════════════════════════════════════════════════\n"
 #define CLIENT_UI_MENU_PROMPT "Your choice: "
 
@@ -341,5 +345,36 @@
 #define CLIENT_UI_BOARD_DETAILED_CURRENT_TURN "Tour du joueur: %s\n"
 #define CLIENT_UI_BOARD_DETAILED_LINE8 "═══════════════════════════════════════════════════════════\n"
 #define CLIENT_UI_BOARD_DETAILED_LINE9 "\n"
+
+/* Friend management UI */
+#define CLIENT_UI_FRIEND_MENU_HEADER "\nFriend Management\n"
+#define CLIENT_UI_FRIEND_MENU_SEPARATOR "═════════════════════════════════════════════════════════\n"
+#define CLIENT_UI_FRIEND_MENU_OPTION1 "  1. Add friend\n"
+#define CLIENT_UI_FRIEND_MENU_OPTION2 "  2. Remove friend\n"
+#define CLIENT_UI_FRIEND_MENU_OPTION3 "  3. List friends\n"
+#define CLIENT_UI_FRIEND_MENU_OPTION4 "  4. Back to main menu\n"
+#define CLIENT_UI_FRIEND_MENU_PROMPT "Your choice: "
+
+#define CLIENT_UI_FRIEND_ADD_HEADER "\nAdd Friend\n"
+#define CLIENT_UI_FRIEND_ADD_PROMPT "Enter player name to add as friend: "
+#define CLIENT_UI_FRIEND_ADD_SUCCESS "Successfully added %s as friend\n"
+#define CLIENT_UI_FRIEND_ADD_ERROR "Failed to add friend: %s\n"
+
+#define CLIENT_UI_FRIEND_REMOVE_HEADER "\nRemove Friend\n"
+#define CLIENT_UI_FRIEND_REMOVE_PROMPT "Enter friend name to remove: "
+#define CLIENT_UI_FRIEND_REMOVE_SUCCESS "Successfully removed %s from friends\n"
+#define CLIENT_UI_FRIEND_REMOVE_ERROR "Failed to remove friend: %s\n"
+
+#define CLIENT_UI_FRIEND_LIST_HEADER "\nYour Friends (%d):\n"
+#define CLIENT_UI_FRIEND_LIST_SEPARATOR "─────────────────────────────\n"
+#define CLIENT_UI_FRIEND_LIST_ITEM "  %d. %s\n"
+#define CLIENT_UI_FRIEND_LIST_EMPTY "  (No friends)\n"
+#define CLIENT_UI_FRIEND_LIST_FOOTER "─────────────────────────────\n"
+
+/* Saved games logging constants */
+#define CLIENT_LOG_LIST_SAVED_GAMES_HEADER "\nList Saved Games for Review\n"
+#define CLIENT_LOG_LIST_SAVED_GAMES_PROMPT "Enter player name to filter (or press Enter for all games): "
+#define CLIENT_LOG_VIEW_SAVED_GAME_HEADER "\nView Saved Game\n"
+#define CLIENT_LOG_VIEW_SAVED_GAME_PROMPT "Enter game ID: "
 
 #endif /* CLIENT_LOGGING_STRINGS_H */

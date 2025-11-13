@@ -85,22 +85,22 @@ error_code_t game_manager_create_game(game_manager_t* manager, const char* playe
 
 error_code_t game_manager_remove_game(game_manager_t* manager, const char* game_id) {
     if (!manager || !game_id) return ERR_INVALID_PARAM;
-    
+
     pthread_mutex_lock(&manager->lock);
-    
+
     game_instance_t* game = game_manager_find_game(manager, game_id);
     if (!game) {
         pthread_mutex_unlock(&manager->lock);
         return ERR_GAME_NOT_FOUND;
     }
-    
-    // Delete saved game file when game ends
-    storage_delete_game(game->game_id);
-    
+
+    // Keep saved game file for review when game ends
+    // storage_delete_game(game->game_id);  // Commented out to preserve completed games
+
     // Mark game as inactive
     game->active = false;
     manager->game_count--;
-    
+
     pthread_mutex_unlock(&manager->lock);
     return SUCCESS;
 }

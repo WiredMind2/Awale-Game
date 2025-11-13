@@ -52,6 +52,8 @@ typedef struct {
     time_t last_seen;
     char bio[10][256];  /* 10 lines of 256 chars each */
     int bio_lines;
+    char friends[MAX_FRIENDS][MAX_PSEUDO_LEN];
+    int friend_count;
     uint32_t crc;
 } persistent_player_t;
 
@@ -462,6 +464,11 @@ error_code_t storage_save_players(const matchmaking_t* mm) {
         for (int b = 0; b < pp.bio_lines && b < 10; b++) {
             strncpy(pp.bio[b], entry->info.bio[b], sizeof(pp.bio[b]) - 1);
         }
+        /* Copy friends */
+        pp.friend_count = entry->info.friend_count;
+        for (int f = 0; f < pp.friend_count && f < MAX_FRIENDS; f++) {
+            strncpy(pp.friends[f], entry->info.friends[f], MAX_PSEUDO_LEN - 1);
+        }
 
         /* Calculate CRC */
         pp.crc = calculate_crc32(&pp, sizeof(pp) - sizeof(pp.crc));
@@ -543,6 +550,10 @@ error_code_t storage_load_players(matchmaking_t* mm) {
             for (int b = 0; b < pp->bio_lines && b < 10; b++) {
                 snprintf(entry->info.bio[b], sizeof(entry->info.bio[b]), "%s", pp->bio[b]);
             }
+            entry->info.friend_count = pp->friend_count;
+            for (int f = 0; f < pp->friend_count && f < MAX_FRIENDS; f++) {
+                snprintf(entry->info.friends[f], MAX_PSEUDO_LEN, "%s", pp->friends[f]);
+            }
             mm->player_count++;
         }
 
@@ -551,4 +562,38 @@ error_code_t storage_load_players(matchmaking_t* mm) {
 
     closedir(d);
     return SUCCESS;
+}
+
+/* Saved games for review */
+error_code_t storage_list_saved_games(int* count, char game_ids[][MAX_GAME_ID_LEN], int max_games) {
+    if (!count || !game_ids) return ERR_INVALID_PARAM;
+
+    *count = 0;
+
+    /* Scan data directory for game files */
+    DIR* d = opendir(STORAGE_DIR);
+    if (!d) return ERR_NETWORK_ERROR;
+
+    struct dirent* ent;
+    while ((ent = readdir(d)) != NULL && *count < max_games) {
+        /* Look for files ending with ".dat" but not "player_" prefixed */
+        size_t len = strlen(ent->d_name);
+        if (len <= 4) continue;
+        if (strcmp(ent->d_name + len - 4, ".dat") != 0) continue;
+        if (strncmp(ent->d_name, "player_", 7) == 0) continue;  /* Skip player files */
+
+        /* Extract game ID from filename (remove .dat extension) */
+        char game_id[MAX_GAME_ID_LEN];
+        snprintf(game_id, MAX_GAME_ID_LEN, "%.*s", (int)(len - 4), ent->d_name);
+        snprintf(game_ids[*count], MAX_GAME_ID_LEN, "%s", game_id);
+        (*count)++;
+    }
+
+    closedir(d);
+    return SUCCESS;
+}
+
+error_code_t storage_load_saved_game(const char* game_id, game_instance_t* game) {
+    /* Reuse the existing storage_load_game function */
+    return storage_load_game(game_id, game);
 }

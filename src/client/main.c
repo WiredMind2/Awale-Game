@@ -95,7 +95,10 @@ int main(int argc, char** argv) {
             case 7: cmd_play_mode(); break;
             case 8: cmd_chat(); break;
             case 9: cmd_spectator_mode(); break;
-            case 10:
+            case 10: cmd_friend_management(); break;
+            case 11: cmd_list_saved_games(); break;
+            case 12: cmd_view_saved_game(); break;
+            case 13:
                 client_log_info(CLIENT_LOG_DISCONNECTING);
                 session_send_message(&g_session, MSG_DISCONNECT, NULL, 0);
                 client_state_set_running(false);

@@ -23,7 +23,7 @@ void print_banner(void) {
 void print_menu(void) {
     int pending = pending_challenges_count();
     int active = active_games_count();
-    
+
     printf(CLIENT_UI_MENU_LINE1);
     printf(CLIENT_UI_MENU_LINE2);
     printf(CLIENT_UI_MENU_LINE3);
@@ -41,11 +41,14 @@ void print_menu(void) {
     printf(CLIENT_UI_MENU_OPTION7);
     printf(CLIENT_UI_MENU_OPTION8);
     if (active > 0) {
-        printf(CLIENT_UI_MENU_ACTIVE, active, active > 1 ? "s" : "", active > 1 ? "s" : "");
+        printf(CLIENT_UI_MENU_ACTIVE, active, active > 1 ? "s" : "");
     }
     printf(CLIENT_UI_MENU_LINE6);
     printf(CLIENT_UI_MENU_OPTION9);
     printf(CLIENT_UI_MENU_OPTION10);
+    printf(CLIENT_UI_MENU_OPTION11);
+    printf(CLIENT_UI_MENU_OPTION12);
+    printf(CLIENT_UI_MENU_OPTION13);
     printf(CLIENT_UI_MENU_LINE7);
     printf(CLIENT_UI_MENU_PROMPT);
 }
@@ -376,35 +379,35 @@ void ui_display_board_simple(const board_t* board) {
 
 void ui_display_board_detailed(const board_t* board, const char* player_a_name, const char* player_b_name) {
     if (!board) return;
-    
+
     printf(CLIENT_UI_BOARD_DETAILED_LINE1);
     printf(CLIENT_UI_BOARD_DETAILED_LINE2);
     printf(CLIENT_UI_BOARD_DETAILED_LINE3);
     printf(CLIENT_UI_BOARD_DETAILED_LINE4);
-    printf(CLIENT_UI_BOARD_DETAILED_PLAYER_B, 
-           player_b_name ? player_b_name : "Player B", 
+    printf(CLIENT_UI_BOARD_DETAILED_PLAYER_B,
+           player_b_name ? player_b_name : "Player B",
            board->scores[1],
            (board->current_player == PLAYER_B) ? "← À TOI!" : "");
     printf(CLIENT_UI_BOARD_DETAILED_LINE5);
-    
+
     printf(CLIENT_UI_BOARD_DETAILED_TOP_ROW);
     printf(CLIENT_UI_BOARD_DETAILED_TOP_PITS,
-           board->pits[11], board->pits[10], board->pits[9], 
+           board->pits[11], board->pits[10], board->pits[9],
            board->pits[8], board->pits[7], board->pits[6]);
     printf(CLIENT_UI_BOARD_DETAILED_TOP_LABELS);
     printf(CLIENT_UI_BOARD_DETAILED_MIDDLE);
     printf(CLIENT_UI_BOARD_DETAILED_BOTTOM_LABELS);
     printf(CLIENT_UI_BOARD_DETAILED_BOTTOM_PITS,
-           board->pits[0], board->pits[1], board->pits[2], 
+           board->pits[0], board->pits[1], board->pits[2],
            board->pits[3], board->pits[4], board->pits[5]);
     printf(CLIENT_UI_BOARD_DETAILED_BOTTOM_ROW);
     printf(CLIENT_UI_BOARD_DETAILED_LINE6);
-    printf(CLIENT_UI_BOARD_DETAILED_PLAYER_A, 
+    printf(CLIENT_UI_BOARD_DETAILED_PLAYER_A,
            (board->current_player == PLAYER_A) ? "À TOI! →" : "",
            player_a_name ? player_a_name : "Player A",
            board->scores[0]);
     printf(CLIENT_UI_BOARD_DETAILED_LINE7);
-    
+
     if (board->state == GAME_STATE_FINISHED) {
         printf(CLIENT_UI_BOARD_DETAILED_GAME_OVER);
         if (board->winner == WINNER_A) {
@@ -415,11 +418,37 @@ void ui_display_board_detailed(const board_t* board, const char* player_a_name, 
             printf(CLIENT_UI_BOARD_DETAILED_DRAW);
         }
     } else {
-        printf(CLIENT_UI_BOARD_DETAILED_CURRENT_TURN, 
-               (board->current_player == PLAYER_A) ? 
-               (player_a_name ? player_a_name : "Player A") : 
+        printf(CLIENT_UI_BOARD_DETAILED_CURRENT_TURN,
+               (board->current_player == PLAYER_A) ?
+               (player_a_name ? player_a_name : "Player A") :
                (player_b_name ? player_b_name : "Player B"));
     }
     printf(CLIENT_UI_BOARD_DETAILED_LINE8);
     printf(CLIENT_UI_BOARD_DETAILED_LINE9);
+}
+
+/* Friend management UI functions */
+void ui_display_friend_menu(void) {
+    printf(CLIENT_UI_FRIEND_MENU_HEADER);
+    printf(CLIENT_UI_FRIEND_MENU_SEPARATOR);
+    printf(CLIENT_UI_FRIEND_MENU_OPTION1);
+    printf(CLIENT_UI_FRIEND_MENU_OPTION2);
+    printf(CLIENT_UI_FRIEND_MENU_OPTION3);
+    printf(CLIENT_UI_FRIEND_MENU_OPTION4);
+    printf(CLIENT_UI_FRIEND_MENU_SEPARATOR);
+    printf(CLIENT_UI_FRIEND_MENU_PROMPT);
+}
+
+void ui_display_friend_list(const msg_list_friends_t* friends) {
+    printf(CLIENT_UI_FRIEND_LIST_HEADER, friends->count);
+    printf(CLIENT_UI_FRIEND_LIST_SEPARATOR);
+
+    if (friends->count == 0) {
+        printf(CLIENT_UI_FRIEND_LIST_EMPTY);
+    } else {
+        for (int i = 0; i < friends->count; i++) {
+            printf(CLIENT_UI_FRIEND_LIST_ITEM, i + 1, friends->friends[i]);
+        }
+    }
+    printf(CLIENT_UI_FRIEND_LIST_FOOTER);
 }

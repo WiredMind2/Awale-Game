@@ -67,6 +67,11 @@ error_code_t matchmaking_get_player_stats(matchmaking_t* mm, const char* pseudo,
 /* Update player's bio lines */
 error_code_t matchmaking_set_player_bio(matchmaking_t* mm, const char* pseudo, const char bio[][256], int lines);
 
+/* Friend management */
+error_code_t matchmaking_add_friend(matchmaking_t* mm, const char* pseudo, const char* friend_pseudo);
+error_code_t matchmaking_remove_friend(matchmaking_t* mm, const char* pseudo, const char* friend_pseudo);
+bool matchmaking_are_friends(matchmaking_t* mm, const char* pseudo1, const char* pseudo2);
+
 /* Cleanup */
 void matchmaking_cleanup_old_challenges(matchmaking_t* mm, int max_age_seconds);
 void matchmaking_cleanup_expired_challenges(matchmaking_t* mm);

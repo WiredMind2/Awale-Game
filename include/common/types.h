@@ -10,6 +10,7 @@
 #define MAX_GAME_ID_LEN 256
 #define MAX_IP_LEN 46  /* IPv6 max length */
 #define MAX_CHAT_LEN 512
+#define MAX_FRIENDS 50
 #define NUM_PITS 12
 #define PITS_PER_PLAYER 6
 #define INITIAL_SEEDS_PER_PIT 4
@@ -72,6 +73,9 @@ typedef struct {
     /* Bio (10 lines of 256 characters each) */
     char bio[10][256];
     int bio_lines;
+    /* Friends list */
+    char friends[MAX_FRIENDS][MAX_PSEUDO_LEN];
+    int friend_count;
 } player_info_t;
 
 /* Utility macros */

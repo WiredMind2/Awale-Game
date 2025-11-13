@@ -381,3 +381,272 @@ __attribute__((unused)) void cmd_chat(void)
         /* No response waiting needed - MSG_CHAT_MESSAGE will be displayed by notification handler */
     }
 }
+
+/* Friend management menu */
+__attribute__((unused)) void cmd_friend_management(void)
+{
+    session_t* session = client_state_get_session();
+
+    while (client_state_is_running()) {
+        ui_display_friend_menu();
+
+        int choice;
+        if (scanf("%d", &choice) != 1) {
+            clear_input();
+            client_log_error(CLIENT_LOG_INVALID_INPUT);
+            continue;
+        }
+        clear_input();
+
+        switch (choice) {
+            case 1: {  /* Add friend */
+                printf(CLIENT_UI_FRIEND_ADD_HEADER);
+                printf(CLIENT_UI_FRIEND_ADD_PROMPT);
+
+                char friend_name[MAX_PSEUDO_LEN];
+                if (read_line(friend_name, MAX_PSEUDO_LEN) == NULL || strlen(friend_name) == 0) {
+                    client_log_error(CLIENT_LOG_INVALID_INPUT);
+                    continue;
+                }
+
+                msg_add_friend_t add_msg;
+                memset(&add_msg, 0, sizeof(add_msg));
+                snprintf(add_msg.friend_pseudo, MAX_PSEUDO_LEN, "%s", friend_name);
+
+                error_code_t err = session_send_message(session, MSG_ADD_FRIEND, &add_msg, sizeof(add_msg));
+                if (err != SUCCESS) {
+                    printf(CLIENT_UI_FRIEND_ADD_ERROR, error_to_string(err));
+                    continue;
+                }
+
+                message_type_t type;
+                char dummy[1];
+                size_t size;
+                err = session_recv_message_timeout(session, &type, dummy, sizeof(dummy), &size, 5000);
+                if (err == SUCCESS && type == MSG_CHALLENGE_SENT) {  /* Reuse ACK message */
+                    printf(CLIENT_UI_FRIEND_ADD_SUCCESS, friend_name);
+                } else {
+                    printf(CLIENT_UI_FRIEND_ADD_ERROR, "Server error");
+                }
+                break;
+            }
+
+            case 2: {  /* Remove friend */
+                printf(CLIENT_UI_FRIEND_REMOVE_HEADER);
+                printf(CLIENT_UI_FRIEND_REMOVE_PROMPT);
+
+                char friend_name[MAX_PSEUDO_LEN];
+                if (read_line(friend_name, MAX_PSEUDO_LEN) == NULL || strlen(friend_name) == 0) {
+                    client_log_error(CLIENT_LOG_INVALID_INPUT);
+                    continue;
+                }
+
+                msg_remove_friend_t remove_msg;
+                memset(&remove_msg, 0, sizeof(remove_msg));
+                snprintf(remove_msg.friend_pseudo, MAX_PSEUDO_LEN, "%s", friend_name);
+
+                error_code_t err = session_send_message(session, MSG_REMOVE_FRIEND, &remove_msg, sizeof(remove_msg));
+                if (err != SUCCESS) {
+                    printf(CLIENT_UI_FRIEND_REMOVE_ERROR, error_to_string(err));
+                    continue;
+                }
+
+                message_type_t type;
+                char dummy[1];
+                size_t size;
+                err = session_recv_message_timeout(session, &type, dummy, sizeof(dummy), &size, 5000);
+                if (err == SUCCESS && type == MSG_CHALLENGE_SENT) {  /* Reuse ACK message */
+                    printf(CLIENT_UI_FRIEND_REMOVE_SUCCESS, friend_name);
+                } else {
+                    printf(CLIENT_UI_FRIEND_REMOVE_ERROR, "Server error");
+                }
+                break;
+            }
+
+            case 3: {  /* List friends */
+                error_code_t err = session_send_message(session, MSG_LIST_FRIENDS, NULL, 0);
+                if (err != SUCCESS) {
+                    client_log_error(CLIENT_LOG_ERROR_SENDING_REQUEST, error_to_string(err));
+                    continue;
+                }
+
+                message_type_t type;
+                msg_list_friends_t friends;
+                size_t size;
+                err = session_recv_message_timeout(session, &type, &friends, sizeof(friends), &size, 5000);
+                if (err == ERR_TIMEOUT) {
+                    client_log_error(CLIENT_LOG_TIMEOUT_SERVER);
+                    continue;
+                }
+                if (err != SUCCESS || type != MSG_LIST_FRIENDS) {
+                    client_log_error(CLIENT_LOG_ERROR_RECEIVING_RESPONSE);
+                    continue;
+                }
+
+                ui_display_friend_list(&friends);
+                break;
+            }
+
+            case 4:  /* Back to main menu */
+                return;
+
+            default:
+                client_log_error(CLIENT_LOG_INVALID_CHOICE);
+                break;
+        }
+    }
+}
+
+/* List saved games for review */
+__attribute__((unused)) void cmd_list_saved_games(void) {
+    session_t* session = client_state_get_session();
+
+    client_log_info(CLIENT_LOG_LIST_SAVED_GAMES_HEADER);
+    client_log_info(CLIENT_LOG_LIST_SAVED_GAMES_PROMPT);
+
+    char player_filter[MAX_PSEUDO_LEN];
+    memset(player_filter, 0, sizeof(player_filter));
+
+    if (read_line(player_filter, sizeof(player_filter)) == NULL) {
+        client_log_error(CLIENT_LOG_INVALID_INPUT);
+        return;
+    }
+
+    /* If empty, list all games */
+    msg_list_saved_games_t req;
+    memset(&req, 0, sizeof(req));
+    if (strlen(player_filter) > 0) {
+        snprintf(req.player, MAX_PSEUDO_LEN, "%s", player_filter);
+    }
+
+    error_code_t err = session_send_message(session, MSG_LIST_SAVED_GAMES, &req, sizeof(req));
+    if (err != SUCCESS) {
+        client_log_error(CLIENT_LOG_ERROR_SENDING_REQUEST, error_to_string(err));
+        return;
+    }
+
+    message_type_t type;
+    msg_saved_game_list_t list;
+    size_t size;
+
+    err = session_recv_message_timeout(session, &type, &list, sizeof(list), &size, 5000);
+    if (err == ERR_TIMEOUT) {
+        client_log_error(CLIENT_LOG_TIMEOUT_SERVER);
+        return;
+    }
+    if (err != SUCCESS || type != MSG_SAVED_GAME_LIST) {
+        client_log_error(CLIENT_LOG_ERROR_RECEIVING_RESPONSE);
+        return;
+    }
+
+    /* Display the list - reuse game list UI */
+    printf("Saved Games for Review:\n");
+    if (list.count == 0) {
+        printf("No saved games found.\n");
+        return;
+    }
+
+    for (int i = 0; i < list.count; i++) {
+        game_info_t* game = &list.games[i];
+        printf("%d. %s vs %s (%s)\n",
+               i + 1, game->player_a, game->player_b, game->game_id);
+    }
+}
+
+/* View a saved game */
+__attribute__((unused)) void cmd_view_saved_game(void) {
+    session_t* session = client_state_get_session();
+
+    client_log_info(CLIENT_LOG_VIEW_SAVED_GAME_HEADER);
+
+    /* First, get and display the list of saved games */
+    msg_list_saved_games_t list_req;
+    memset(&list_req, 0, sizeof(list_req));
+    /* List all games for selection */
+    error_code_t err = session_send_message(session, MSG_LIST_SAVED_GAMES, &list_req, sizeof(list_req));
+    if (err != SUCCESS) {
+        client_log_error(CLIENT_LOG_ERROR_SENDING_REQUEST, error_to_string(err));
+        return;
+    }
+
+    message_type_t type;
+    msg_saved_game_list_t list;
+    size_t size;
+
+    err = session_recv_message_timeout(session, &type, &list, sizeof(list), &size, 5000);
+    if (err == ERR_TIMEOUT) {
+        client_log_error(CLIENT_LOG_TIMEOUT_SERVER);
+        return;
+    }
+    if (err != SUCCESS || type != MSG_SAVED_GAME_LIST) {
+        client_log_error(CLIENT_LOG_ERROR_RECEIVING_RESPONSE);
+        return;
+    }
+
+    /* Display the list */
+    printf("Saved Games for Review:\n");
+    if (list.count == 0) {
+        printf("No saved games found.\n");
+        return;
+    }
+
+    for (int i = 0; i < list.count; i++) {
+        game_info_t* game = &list.games[i];
+        printf("%d. %s vs %s (ID: %s)\n",
+               i + 1, game->player_a, game->player_b, game->game_id);
+    }
+
+    /* Now prompt for selection */
+    printf("\nEnter game number (1-%d) or full game ID: ", list.count);
+
+    char input[MAX_GAME_ID_LEN];
+    if (read_line(input, sizeof(input)) == NULL || strlen(input) == 0) {
+        client_log_error(CLIENT_LOG_INVALID_INPUT);
+        return;
+    }
+
+    char game_id[MAX_GAME_ID_LEN];
+    memset(game_id, 0, sizeof(game_id));
+
+    /* Check if input is a number (selection from list) */
+    int selection = atoi(input);
+    if (selection >= 1 && selection <= list.count) {
+        /* Use the game ID from the selected game */
+        game_info_t* selected_game = &list.games[selection - 1];
+        snprintf(game_id, MAX_GAME_ID_LEN, "%s", selected_game->game_id);
+    } else {
+        /* Treat input as direct game ID */
+        snprintf(game_id, MAX_GAME_ID_LEN, "%s", input);
+    }
+
+    msg_view_saved_game_t req;
+    memset(&req, 0, sizeof(req));
+    snprintf(req.game_id, MAX_GAME_ID_LEN, "%s", game_id);
+
+    err = session_send_message(session, MSG_VIEW_SAVED_GAME, &req, sizeof(req));
+    if (err != SUCCESS) {
+        client_log_error(CLIENT_LOG_ERROR_SENDING_REQUEST, error_to_string(err));
+        return;
+    }
+
+    msg_saved_game_state_t board_state;
+
+    err = session_recv_message_timeout(session, &type, &board_state, sizeof(board_state), &size, 5000);
+    if (err == ERR_TIMEOUT) {
+        client_log_error(CLIENT_LOG_TIMEOUT_SERVER);
+        return;
+    }
+    if (err != SUCCESS || type != MSG_SAVED_GAME_STATE) {
+        client_log_error(CLIENT_LOG_ERROR_RECEIVING_RESPONSE);
+        return;
+    }
+
+    if (!board_state.exists) {
+        printf("Game not found.\n");
+        return;
+    }
+
+    /* Display the saved game board */
+    printf("Saved Game: %s vs %s\n", board_state.player_a, board_state.player_b);
+    ui_display_board_simple((const board_t*)&board_state.pits);  /* Cast to board_t for display */
+}

@@ -220,4 +220,39 @@ typedef struct {
     msg_chat_message_t messages[50];  /* Max 50 messages */
 } msg_chat_history_t;
 
+/* MSG_ADD_FRIEND */
+typedef struct {
+    char friend_pseudo[MAX_PSEUDO_LEN];
+} msg_add_friend_t;
+
+/* MSG_REMOVE_FRIEND */
+typedef struct {
+    char friend_pseudo[MAX_PSEUDO_LEN];
+} msg_remove_friend_t;
+
+/* MSG_LIST_FRIENDS */
+typedef struct {
+    int count;
+    char friends[MAX_FRIENDS][MAX_PSEUDO_LEN];
+} msg_list_friends_t;
+
+/* MSG_LIST_SAVED_GAMES */
+typedef struct {
+    char player[MAX_PSEUDO_LEN];  /* Optional: filter by player */
+} msg_list_saved_games_t;
+
+/* MSG_VIEW_SAVED_GAME */
+typedef struct {
+    char game_id[MAX_GAME_ID_LEN];
+} msg_view_saved_game_t;
+
+/* MSG_SAVED_GAME_LIST */
+typedef struct {
+    int count;
+    game_info_t games[50];  /* Max 50 saved games */
+} msg_saved_game_list_t;
+
+/* MSG_SAVED_GAME_STATE - Same structure as msg_board_state_t */
+typedef msg_board_state_t msg_saved_game_state_t;
+
 #endif /* MESSAGES_H */

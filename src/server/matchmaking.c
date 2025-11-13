@@ -339,3 +339,95 @@ error_code_t matchmaking_set_player_bio(matchmaking_t* mm, const char* pseudo, c
     pthread_mutex_unlock(&mm->lock);
     return ERR_PLAYER_NOT_FOUND;
 }
+
+error_code_t matchmaking_add_friend(matchmaking_t* mm, const char* pseudo, const char* friend_pseudo) {
+    if (!mm || !pseudo || !friend_pseudo) return ERR_INVALID_PARAM;
+
+    /* Check if friend exists */
+    if (!matchmaking_player_exists(mm, friend_pseudo)) {
+        return ERR_PLAYER_NOT_FOUND;
+    }
+
+    /* Cannot add self as friend */
+    if (strcmp(pseudo, friend_pseudo) == 0) {
+        return ERR_INVALID_PARAM;
+    }
+
+    pthread_mutex_lock(&mm->lock);
+    for (int i = 0; i < mm->player_count; i++) {
+        if (strcmp(mm->players[i].info.pseudo, pseudo) == 0) {
+            /* Check if already friends */
+            for (int f = 0; f < mm->players[i].info.friend_count; f++) {
+                if (strcmp(mm->players[i].info.friends[f], friend_pseudo) == 0) {
+                    pthread_mutex_unlock(&mm->lock);
+                    return ERR_DUPLICATE;  /* Already friends */
+                }
+            }
+
+            /* Check if friend list is full */
+            if (mm->players[i].info.friend_count >= MAX_FRIENDS) {
+                pthread_mutex_unlock(&mm->lock);
+                return ERR_MAX_CAPACITY;
+            }
+
+            /* Add friend */
+            strncpy(mm->players[i].info.friends[mm->players[i].info.friend_count],
+                    friend_pseudo, MAX_PSEUDO_LEN - 1);
+            mm->players[i].info.friends[mm->players[i].info.friend_count][MAX_PSEUDO_LEN - 1] = '\0';
+            mm->players[i].info.friend_count++;
+
+            storage_save_players(mm);
+            pthread_mutex_unlock(&mm->lock);
+            return SUCCESS;
+        }
+    }
+    pthread_mutex_unlock(&mm->lock);
+    return ERR_PLAYER_NOT_FOUND;
+}
+
+error_code_t matchmaking_remove_friend(matchmaking_t* mm, const char* pseudo, const char* friend_pseudo) {
+    if (!mm || !pseudo || !friend_pseudo) return ERR_INVALID_PARAM;
+
+    pthread_mutex_lock(&mm->lock);
+    for (int i = 0; i < mm->player_count; i++) {
+        if (strcmp(mm->players[i].info.pseudo, pseudo) == 0) {
+            /* Find and remove friend */
+            for (int f = 0; f < mm->players[i].info.friend_count; f++) {
+                if (strcmp(mm->players[i].info.friends[f], friend_pseudo) == 0) {
+                    /* Shift remaining friends */
+                    for (int j = f; j < mm->players[i].info.friend_count - 1; j++) {
+                        strcpy(mm->players[i].info.friends[j], mm->players[i].info.friends[j + 1]);
+                    }
+                    mm->players[i].info.friend_count--;
+
+                    storage_save_players(mm);
+                    pthread_mutex_unlock(&mm->lock);
+                    return SUCCESS;
+                }
+            }
+            pthread_mutex_unlock(&mm->lock);
+            return ERR_PLAYER_NOT_FOUND;  /* Friend not found in list */
+        }
+    }
+    pthread_mutex_unlock(&mm->lock);
+    return ERR_PLAYER_NOT_FOUND;
+}
+
+bool matchmaking_are_friends(matchmaking_t* mm, const char* pseudo1, const char* pseudo2) {
+    if (!mm || !pseudo1 || !pseudo2) return false;
+
+    pthread_mutex_lock(&mm->lock);
+    for (int i = 0; i < mm->player_count; i++) {
+        if (strcmp(mm->players[i].info.pseudo, pseudo1) == 0) {
+            for (int f = 0; f < mm->players[i].info.friend_count; f++) {
+                if (strcmp(mm->players[i].info.friends[f], pseudo2) == 0) {
+                    pthread_mutex_unlock(&mm->lock);
+                    return true;
+                }
+            }
+            break;
+        }
+    }
+    pthread_mutex_unlock(&mm->lock);
+    return false;
+}

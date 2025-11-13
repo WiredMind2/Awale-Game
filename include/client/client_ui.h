@@ -47,4 +47,8 @@ void ui_display_turn_info(int is_your_turn, const int* legal_moves, int count);
 void ui_display_waiting_for_opponent(void);
 void ui_display_play_error(const char* error);
 
+/* Friend management UI */
+void ui_display_friend_menu(void);
+void ui_display_friend_list(const msg_list_friends_t* friends);
+
 #endif /* CLIENT_UI_H */

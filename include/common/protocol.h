@@ -36,6 +36,15 @@ typedef enum {
     MSG_SEND_CHAT,            /* Send chat message */
     MSG_CHAT_MESSAGE,         /* Receive chat message */
     MSG_CHAT_HISTORY,         /* Get chat history */
+    MSG_ADD_FRIEND,           /* Add a friend */
+    MSG_REMOVE_FRIEND,        /* Remove a friend */
+    MSG_LIST_FRIENDS,         /* List friends */
+    MSG_LIST_SAVED_GAMES,     /* List saved games for review */
+    MSG_VIEW_SAVED_GAME,      /* View a saved game */
+
+    /* Server responses for saved games */
+    MSG_SAVED_GAME_LIST,      /* List of saved games */
+    MSG_SAVED_GAME_STATE,     /* State of a saved game */
 
     /* Server responses */
     MSG_CONNECT_ACK,

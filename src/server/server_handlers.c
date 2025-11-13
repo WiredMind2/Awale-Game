@@ -5,6 +5,7 @@
 #include "../../include/server/server_handlers.h"
 #include "../../include/server/server_registry.h"
 #include "../../include/server/matchmaking.h"
+#include "../../include/server/storage.h"
 #include "../../include/game/board.h"
 #include "../../include/common/protocol.h"
 #include <stdio.h>
@@ -304,49 +305,58 @@ void handle_list_my_games(session_t* session) {
 /* Handle MSG_SPECTATE_GAME */
 void handle_spectate_game(session_t* session, const char* game_id) {
     game_instance_t* game = game_manager_find_game(g_game_manager, game_id);
-    
+
     if (!game) {
         session_send_error(session, ERR_GAME_NOT_FOUND, "Game not found");
         return;
     }
-    
+
+    /* Check if spectator is friend with at least one player */
+    bool is_friend = matchmaking_are_friends(g_matchmaking, session->pseudo, game->player_a) ||
+                     matchmaking_are_friends(g_matchmaking, session->pseudo, game->player_b);
+
+    if (!is_friend) {
+        session_send_error(session, ERR_INVALID_PARAM, "You must be friends with at least one player to spectate this private game");
+        return;
+    }
+
     /* Add spectator */
     error_code_t err = game_manager_add_spectator(g_game_manager, game_id, session->pseudo);
-    
+
     if (err != SUCCESS) {
         session_send_error(session, err, "Failed to join as spectator");
         return;
     }
-    
+
     /* Send acknowledgment */
     msg_spectate_ack_t ack;
     ack.success = true;
     snprintf(ack.message, 256, "You are now spectating %s vs %s", game->player_a, game->player_b);
     ack.spectator_count = game_manager_get_spectator_count(g_game_manager, game_id);
-    
+
     session_send_message(session, MSG_SPECTATE_ACK, &ack, sizeof(ack));
-    
+
     printf("%s is now spectating %s\n", session->pseudo, game_id);
-    
+
     /* Notify players and other spectators */
     msg_spectator_joined_t notification;
     memset(&notification, 0, sizeof(notification));
     snprintf(notification.spectator, MAX_PSEUDO_LEN, "%s", session->pseudo);
     snprintf(notification.game_id, MAX_GAME_ID_LEN, "%s", game_id);
     notification.spectator_count = ack.spectator_count;
-    
+
     /* Notify player A */
     session_t* player_a_session = session_registry_find(game->player_a);
     if (player_a_session) {
         session_send_message(player_a_session, MSG_SPECTATOR_JOINED, &notification, sizeof(notification));
     }
-    
+
     /* Notify player B */
     session_t* player_b_session = session_registry_find(game->player_b);
     if (player_b_session) {
         session_send_message(player_b_session, MSG_SPECTATOR_JOINED, &notification, sizeof(notification));
     }
-    
+
     /* Notify other spectators */
     pthread_mutex_lock(&game->lock);
     for (int i = 0; i < game->spectator_count; i++) {
@@ -638,4 +648,141 @@ void handle_challenge_decline(session_t* session, const msg_challenge_decline_t*
 
     /* Confirm to decliner */
     session_send_message(session, MSG_CHALLENGE_SENT, NULL, 0);  /* Reuse as ACK */
+}
+
+/* Handle MSG_ADD_FRIEND */
+void handle_add_friend(session_t* session, const msg_add_friend_t* add_msg) {
+    if (!add_msg) {
+        session_send_error(session, ERR_INVALID_PARAM, "Invalid add friend message");
+        return;
+    }
+
+    error_code_t err = matchmaking_add_friend(g_matchmaking, session->pseudo, add_msg->friend_pseudo);
+    if (err == SUCCESS) {
+        printf("%s added %s as friend\n", session->pseudo, add_msg->friend_pseudo);
+        session_send_message(session, MSG_CHALLENGE_SENT, NULL, 0);  /* Reuse as ACK */
+    } else if (err == ERR_DUPLICATE) {
+        session_send_error(session, err, "Already friends with this player");
+    } else if (err == ERR_MAX_CAPACITY) {
+        session_send_error(session, err, "Friend list is full");
+    } else if (err == ERR_PLAYER_NOT_FOUND) {
+        session_send_error(session, err, "Player not found");
+    } else {
+        session_send_error(session, err, "Failed to add friend");
+    }
+}
+
+/* Handle MSG_REMOVE_FRIEND */
+void handle_remove_friend(session_t* session, const msg_remove_friend_t* remove_msg) {
+    if (!remove_msg) {
+        session_send_error(session, ERR_INVALID_PARAM, "Invalid remove friend message");
+        return;
+    }
+
+    error_code_t err = matchmaking_remove_friend(g_matchmaking, session->pseudo, remove_msg->friend_pseudo);
+    if (err == SUCCESS) {
+        printf("%s removed %s from friends\n", session->pseudo, remove_msg->friend_pseudo);
+        session_send_message(session, MSG_CHALLENGE_SENT, NULL, 0);  /* Reuse as ACK */
+    } else {
+        session_send_error(session, err, "Failed to remove friend");
+    }
+}
+
+/* Handle MSG_LIST_FRIENDS */
+void handle_list_friends(session_t* session) {
+    msg_list_friends_t response;
+    memset(&response, 0, sizeof(response));
+
+    /* Get player info to access friends list */
+    player_info_t player_info;
+    error_code_t err = matchmaking_get_player_stats(g_matchmaking, session->pseudo, &player_info);
+    if (err != SUCCESS) {
+        session_send_error(session, err, "Failed to get player info");
+        return;
+    }
+
+    response.count = player_info.friend_count;
+    for (int i = 0; i < player_info.friend_count && i < MAX_FRIENDS; i++) {
+        strncpy(response.friends[i], player_info.friends[i], MAX_PSEUDO_LEN - 1);
+        response.friends[i][MAX_PSEUDO_LEN - 1] = '\0';
+    }
+
+    /* Calculate actual size */
+    size_t actual_size = sizeof(response.count) + (response.count * MAX_PSEUDO_LEN);
+    session_send_message(session, MSG_LIST_FRIENDS, &response, actual_size);
+}
+
+/* Handle MSG_LIST_SAVED_GAMES */
+void handle_list_saved_games(session_t* session, const msg_list_saved_games_t* req) {
+    msg_saved_game_list_t response;
+    memset(&response, 0, sizeof(response));
+
+    /* Get list of saved games */
+    char game_ids[50][MAX_GAME_ID_LEN];
+    int count = 0;
+    error_code_t err = storage_list_saved_games(&count, game_ids, 50);
+    if (err != SUCCESS) {
+        session_send_error(session, err, "Failed to list saved games");
+        return;
+    }
+
+    /* Filter by player if specified */
+    int filtered_count = 0;
+    for (int i = 0; i < count && filtered_count < 50; i++) {
+        game_instance_t game;
+        if (storage_load_saved_game(game_ids[i], &game) == SUCCESS) {
+            /* Check if player is involved in this game */
+            bool include_game = true;
+            if (strlen(req->player) > 0) {
+                include_game = (strcmp(game.player_a, req->player) == 0 ||
+                               strcmp(game.player_b, req->player) == 0);
+            }
+
+            if (include_game) {
+                /* Populate game info */
+                snprintf(response.games[filtered_count].game_id, MAX_GAME_ID_LEN, "%s", game.game_id);
+                snprintf(response.games[filtered_count].player_a, MAX_PSEUDO_LEN, "%s", game.player_a);
+                snprintf(response.games[filtered_count].player_b, MAX_PSEUDO_LEN, "%s", game.player_b);
+                response.games[filtered_count].spectator_count = 0;  /* Not applicable for saved games */
+                response.games[filtered_count].state = game.board.state;
+                filtered_count++;
+            }
+        }
+    }
+
+    response.count = filtered_count;
+
+    /* Calculate actual size */
+    size_t actual_size = sizeof(response.count) + (response.count * sizeof(game_info_t));
+    session_send_message(session, MSG_SAVED_GAME_LIST, &response, actual_size);
+}
+
+/* Handle MSG_VIEW_SAVED_GAME */
+void handle_view_saved_game(session_t* session, const msg_view_saved_game_t* req) {
+    game_instance_t game;
+    error_code_t err = storage_load_saved_game(req->game_id, &game);
+    if (err != SUCCESS) {
+        session_send_error(session, err, "Failed to load saved game");
+        return;
+    }
+
+    /* Build board state response */
+    msg_saved_game_state_t board_msg;
+    memset(&board_msg, 0, sizeof(board_msg));
+
+    board_msg.exists = true;
+    snprintf(board_msg.game_id, MAX_GAME_ID_LEN, "%s", game.game_id);
+    snprintf(board_msg.player_a, MAX_PSEUDO_LEN, "%s", game.player_a);
+    snprintf(board_msg.player_b, MAX_PSEUDO_LEN, "%s", game.player_b);
+
+    for (int i = 0; i < NUM_PITS; i++) {
+        board_msg.pits[i] = game.board.pits[i];
+    }
+    board_msg.score_a = game.board.scores[0];
+    board_msg.score_b = game.board.scores[1];
+    board_msg.current_player = game.board.current_player;
+    board_msg.state = game.board.state;
+    board_msg.winner = game.board.winner;
+
+    session_send_message(session, MSG_SAVED_GAME_STATE, &board_msg, sizeof(board_msg));
 }

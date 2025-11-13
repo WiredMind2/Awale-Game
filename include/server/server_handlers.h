@@ -64,4 +64,19 @@ void handle_get_player_stats(session_t* session, const msg_get_player_stats_t* s
 /* Handle MSG_SEND_CHAT - Send chat message */
 void handle_send_chat(session_t* session, const msg_send_chat_t* chat_msg);
 
+/* Handle MSG_ADD_FRIEND - Add a friend */
+void handle_add_friend(session_t* session, const msg_add_friend_t* add_msg);
+
+/* Handle MSG_REMOVE_FRIEND - Remove a friend */
+void handle_remove_friend(session_t* session, const msg_remove_friend_t* remove_msg);
+
+/* Handle MSG_LIST_FRIENDS - List friends */
+void handle_list_friends(session_t* session);
+
+/* Handle MSG_LIST_SAVED_GAMES - List saved games for review */
+void handle_list_saved_games(session_t* session, const msg_list_saved_games_t* req);
+
+/* Handle MSG_VIEW_SAVED_GAME - View a saved game */
+void handle_view_saved_game(session_t* session, const msg_view_saved_game_t* req);
+
 #endif /* SERVER_HANDLERS_H */
