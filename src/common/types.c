@@ -18,6 +18,9 @@ const char* error_to_string(error_code_t err) {
         case ERR_MAX_CAPACITY: return "Maximum capacity reached";
         case ERR_DUPLICATE: return "Duplicate entry";
         case ERR_TIMEOUT: return "Connection timeout";
+        case ERR_RATE_LIMITED: return "Rate limited";
+        case ERR_TOO_MANY_DECLINES: return "Too many declines";
+        case ERR_UNEXPECTED_MESSAGE: return "Unexpected message type";
         default: return NULL;
     }
 }

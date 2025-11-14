@@ -36,8 +36,8 @@ void cmd_spectator_mode(void) {
     msg_game_list_t game_list;
     size_t size;
     
-    err = session_recv_message_timeout(client_state_get_session(), &type, (char*)&game_list, 
-                                       sizeof(game_list), &size, 5000);
+    err = session_recv_message_timeout(client_state_get_session(), &type, (char*)&game_list,
+                                       sizeof(game_list), &size, 5000, NULL, 0);
     
     if (err == ERR_TIMEOUT) {
         client_log_error(CLIENT_LOG_TIMEOUT_GAME_LIST);
@@ -104,8 +104,8 @@ void cmd_spectator_mode(void) {
     
     /* Wait for acknowledgment */
     msg_spectate_ack_t ack;
-    err = session_recv_message_timeout(client_state_get_session(), &type, (char*)&ack, 
-                                       sizeof(ack), &size, 5000);
+    err = session_recv_message_timeout(client_state_get_session(), &type, (char*)&ack,
+                                       sizeof(ack), &size, 5000, NULL, 0);
     
     if (err == ERR_TIMEOUT) {
         client_log_error(CLIENT_LOG_SPECTATOR_TIMEOUT_ACK);

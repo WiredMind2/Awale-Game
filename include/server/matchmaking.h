@@ -29,6 +29,12 @@ typedef struct {
     player_entry_t players[MAX_PLAYERS];
     int player_count;
     pthread_mutex_t lock;
+    /* Rate limiting: last challenge time from challenger[i] to opponent[j] */
+    time_t last_challenge_times[MAX_PLAYERS][MAX_PLAYERS];
+    /* Decline tracking: count of declines from opponent[j] to challenger[i] */
+    int decline_counts[MAX_PLAYERS][MAX_PLAYERS];
+    /* Last decline time from opponent[j] to challenger[i] */
+    time_t last_decline_times[MAX_PLAYERS][MAX_PLAYERS];
 } matchmaking_t;
 
 /* Matchmaking initialization */
@@ -58,10 +64,13 @@ int matchmaking_count_challenges(matchmaking_t* mm);
 int matchmaking_count_challenges_for(matchmaking_t* mm, const char* player);
 
 /* Player statistics management */
-error_code_t matchmaking_update_player_stats(matchmaking_t* mm, const char* pseudo, 
-                                            bool game_won, int score_earned);
-error_code_t matchmaking_get_player_stats(matchmaking_t* mm, const char* pseudo, 
-                                         player_info_t* info_out);
+error_code_t matchmaking_update_player_stats(matchmaking_t* mm, const char* pseudo,
+                                             bool game_won, int score_earned);
+error_code_t matchmaking_get_player_stats(matchmaking_t* mm, const char* pseudo,
+                                          player_info_t* info_out);
+
+/* Utility functions */
+int matchmaking_get_player_index(matchmaking_t* mm, const char* pseudo);
 
 /* Update player's bio lines */
 error_code_t matchmaking_set_player_bio(matchmaking_t* mm, const char* pseudo, const char bio[][256], int lines);
