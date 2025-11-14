@@ -472,6 +472,10 @@ __attribute__((unused)) void cmd_friend_management(void)
                 } else {
                     printf(CLIENT_UI_FRIEND_ADD_ERROR, "Server error");
                 }
+                printf("\nPress Enter to continue...");
+                fflush(stdout);
+                char dummy[2];
+                read_line(dummy, 2);
                 break;
             }
 
@@ -507,6 +511,10 @@ __attribute__((unused)) void cmd_friend_management(void)
                 } else {
                     printf(CLIENT_UI_FRIEND_REMOVE_ERROR, "Server error");
                 }
+                printf("\nPress Enter to continue...");
+                fflush(stdout);
+                char dummy[2];
+                read_line(dummy, 2);
                 break;
             }
 
@@ -531,6 +539,10 @@ __attribute__((unused)) void cmd_friend_management(void)
                 }
 
                 ui_display_friend_list(&friends);
+                printf("\nPress Enter to continue...");
+                fflush(stdout);
+                char dummy[2];
+                read_line(dummy, 2);
                 break;
             }
 
