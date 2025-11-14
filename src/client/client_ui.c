@@ -6,6 +6,7 @@
 #include "../../include/client/client_state.h"
 #include "../../include/client/client_logging.h"
 #include "../../include/client/client_notifications.h"
+#include "../../include/client/ansi_colors.h"
 #include "../../include/common/types.h"
 #include "../../include/game/board.h"
 #include <stdio.h>
@@ -13,17 +14,21 @@
 #include <time.h>
 
 void print_banner(void) {
+    /* Banner in cyan for visibility */
+    printf(ANSI_COLOR_BRIGHT_CYAN);
     printf(CLIENT_UI_BANNER_LINE1);
     printf(CLIENT_UI_BANNER_LINE2);
     printf(CLIENT_UI_BANNER_LINE3);
     printf(CLIENT_UI_BANNER_LINE4);
     printf(CLIENT_UI_BANNER_LINE5);
+    printf(ANSI_COLOR_RESET);
 }
 
 void print_menu(void) {
     int pending = pending_challenges_count();
     int active = active_games_count();
-
+    /* Menu header in bright cyan */
+    printf(ANSI_COLOR_BRIGHT_CYAN);
     printf(CLIENT_UI_MENU_LINE1);
     printf(CLIENT_UI_MENU_LINE2);
     printf(CLIENT_UI_MENU_LINE3);
@@ -50,10 +55,14 @@ void print_menu(void) {
     printf(CLIENT_UI_MENU_OPTION12);
     printf(CLIENT_UI_MENU_OPTION13);
     printf(CLIENT_UI_MENU_LINE7);
+    /* Reset color before prompt so user input isn't colored */
+    printf(ANSI_COLOR_RESET);
     printf(CLIENT_UI_MENU_PROMPT);
 }
 
 void print_board(const msg_board_state_t* board) {
+    /* Color the board display subtly to improve readability */
+    printf(ANSI_COLOR_BRIGHT_MAGENTA);
     printf(CLIENT_UI_BOARD_LINE1);
     printf(CLIENT_UI_BOARD_LINE2);
     printf(CLIENT_UI_BOARD_LINE3);
@@ -101,6 +110,7 @@ void print_board(const msg_board_state_t* board) {
     }
     printf(CLIENT_UI_BOARD_LINE8);
     printf(CLIENT_UI_BOARD_LINE9);
+    printf(ANSI_COLOR_RESET);
 }
 
 void clear_input(void) {
