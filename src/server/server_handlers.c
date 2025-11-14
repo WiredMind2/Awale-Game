@@ -645,6 +645,20 @@ void handle_challenge_decline(session_t* session, const msg_challenge_decline_t*
         return;
     }
 
+    /* Track decline for rate limiting */
+    pthread_mutex_lock(&g_matchmaking->lock);
+    int challenger_idx = matchmaking_get_player_index(g_matchmaking, challenge->challenger);
+    int opponent_idx = matchmaking_get_player_index(g_matchmaking, challenge->opponent);
+    if (challenger_idx != -1 && opponent_idx != -1) {
+        time_t now = time(NULL);
+        if (now - g_matchmaking->last_decline_times[opponent_idx][challenger_idx] >= 300) {
+            g_matchmaking->decline_counts[opponent_idx][challenger_idx] = 0;
+        }
+        g_matchmaking->decline_counts[opponent_idx][challenger_idx]++;
+        g_matchmaking->last_decline_times[opponent_idx][challenger_idx] = now;
+    }
+    pthread_mutex_unlock(&g_matchmaking->lock);
+
     printf("Challenge declined: %s -> %s\n", challenge->challenger, session->pseudo);
 
     /* Remove the challenge */

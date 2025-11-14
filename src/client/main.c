@@ -167,7 +167,7 @@ static error_code_t establish_connection(const char* pseudo, const char* server_
     msg_connect_ack_t ack;
     size_t size;
 
-    err = session_recv_message_timeout(session, &type, &ack, sizeof(ack), &size, 10000);  /* 10 second timeout */
+    err = session_recv_message_timeout(session, &type, &ack, sizeof(ack), &size, 10000, NULL, 0);  /* 10 second timeout */
     if (err == ERR_TIMEOUT) {
         client_log_error(CLIENT_LOG_TIMEOUT_SERVER);
         connection_close(&session->conn);

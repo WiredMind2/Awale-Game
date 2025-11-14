@@ -7,10 +7,17 @@
 #include "../../include/server/server_handlers.h"
 #include "../../include/common/messages.h"
 #include "../../include/common/protocol.h"
+#include "../../include/network/session.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+
+/* Stub for server - notifications are client-side */
+void handle_notification_message(message_type_t type, const void* payload, size_t size) {
+    (void)type; (void)payload; (void)size;
+    /* Server doesn't handle notifications */
+}
 
 /* Client handler structure */
 typedef struct {
@@ -82,8 +89,8 @@ void* client_handler(void* arg) {
         }
         
         /* Use timeout to allow periodic connection checking */
-        error_code_t err = session_recv_message_timeout(&session, &msg_type, payload, 
-                                                        MAX_PAYLOAD_SIZE, &payload_size, 5000);
+        error_code_t err = session_recv_message_timeout(&session, &msg_type, payload,
+                                                        MAX_PAYLOAD_SIZE, &payload_size, 5000, NULL, 0);
         
         if (err == ERR_TIMEOUT) {
             /* Normal timeout - continue loop to check connection health */

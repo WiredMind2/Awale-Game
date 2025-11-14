@@ -361,7 +361,7 @@ TEST(session_timeout_behavior) {
 
     /* This should timeout quickly since socket is invalid */
     error_code_t err = session_recv_message_timeout(&session, &type, buffer,
-                                                   sizeof(buffer), &size, 100); /* 100ms timeout */
+                                                    sizeof(buffer), &size, 100, NULL, 0); /* 100ms timeout */
 
     /* Should return timeout or network error, not hang indefinitely */
     assert(err == ERR_TIMEOUT || err == ERR_NETWORK_ERROR);

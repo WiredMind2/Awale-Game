@@ -7,17 +7,31 @@
 /* Static counter for challenge ID generation */
 static int64_t g_next_challenge_id = 1;
 
+/* Helper function to get player index from pseudo */
+static int get_player_index(matchmaking_t* mm, const char* pseudo) {
+    for (int i = 0; i < mm->player_count; i++) {
+        if (strcmp(mm->players[i].info.pseudo, pseudo) == 0) {
+            return i;
+        }
+    }
+    return -1;
+}
+
 error_code_t matchmaking_init(matchmaking_t* mm) {
     if (!mm) return ERR_INVALID_PARAM;
     
     mm->challenge_count = 0;
     mm->player_count = 0;
     pthread_mutex_init(&mm->lock, NULL);
-    
+
+    memset(mm->last_challenge_times, 0, sizeof(mm->last_challenge_times));
+    memset(mm->decline_counts, 0, sizeof(mm->decline_counts));
+    memset(mm->last_decline_times, 0, sizeof(mm->last_decline_times));
+
     for (int i = 0; i < MAX_CHALLENGES; i++) {
         mm->challenges[i].active = false;
     }
-    
+
     for (int i = 0; i < MAX_PLAYERS; i++) {
         mm->players[i].connected = false;
     }
@@ -205,10 +219,34 @@ error_code_t matchmaking_update_player_stats(matchmaking_t* mm, const char* pseu
 }
 
 error_code_t matchmaking_create_challenge_with_id(matchmaking_t* mm, const char* challenger,
-                                                 const char* opponent, int64_t* challenge_id) {
+                                                  const char* opponent, int64_t* challenge_id) {
     if (!mm || !challenger || !opponent || !challenge_id) return ERR_INVALID_PARAM;
 
     pthread_mutex_lock(&mm->lock);
+
+    int challenger_idx = get_player_index(mm, challenger);
+    int opponent_idx = get_player_index(mm, opponent);
+    if (challenger_idx == -1 || opponent_idx == -1) {
+        pthread_mutex_unlock(&mm->lock);
+        return ERR_PLAYER_NOT_FOUND;
+    }
+
+    time_t now = time(NULL);
+
+    // Check rate limiting
+    if (now - mm->last_challenge_times[challenger_idx][opponent_idx] < 10) {
+        pthread_mutex_unlock(&mm->lock);
+        return ERR_RATE_LIMITED;
+    }
+
+    // Check decline tracking
+    if (now - mm->last_decline_times[opponent_idx][challenger_idx] >= 300) {
+        mm->decline_counts[opponent_idx][challenger_idx] = 0;
+    }
+    if (mm->decline_counts[opponent_idx][challenger_idx] >= 3) {
+        pthread_mutex_unlock(&mm->lock);
+        return ERR_TOO_MANY_DECLINES;
+    }
 
     // Check if challenge already exists between these players
     for (int i = 0; i < MAX_CHALLENGES; i++) {
@@ -236,6 +274,7 @@ error_code_t matchmaking_create_challenge_with_id(matchmaking_t* mm, const char*
             mm->challenges[i].created_at = time(NULL);
             mm->challenges[i].active = true;
             mm->challenge_count++;
+            mm->last_challenge_times[challenger_idx][opponent_idx] = now;
             break;
         }
     }
@@ -428,4 +467,15 @@ bool matchmaking_are_friends(matchmaking_t* mm, const char* pseudo1, const char*
     }
     pthread_mutex_unlock(&mm->lock);
     return false;
+}
+
+int matchmaking_get_player_index(matchmaking_t* mm, const char* pseudo) {
+    if (!mm || !pseudo) return -1;
+
+    for (int i = 0; i < mm->player_count; i++) {
+        if (strcmp(mm->players[i].info.pseudo, pseudo) == 0) {
+            return i;
+        }
+    }
+    return -1;
 }

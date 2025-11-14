@@ -118,8 +118,8 @@ static error_code_t receive_board(msg_board_state_t* board) {
     const int MAX_RETRIES = 2;
     
     while (retries <= MAX_RETRIES) {
-        error_code_t err = session_recv_message_timeout(client_state_get_session(), &type, board, 
-                                                         sizeof(*board), &size, 5000);
+        error_code_t err = session_recv_message_timeout(client_state_get_session(), &type, board,
+                                                         sizeof(*board), &size, 5000, NULL, 0);
         
         if (err == ERR_TIMEOUT) {
             retries++;
@@ -315,7 +315,7 @@ void cmd_play_mode(void) {
         msg_my_game_list_t list;
         size_t size;
 
-        err = session_recv_message_timeout(session, &type, &list, sizeof(list), &size, 5000);
+        err = session_recv_message_timeout(session, &type, &list, sizeof(list), &size, 5000, NULL, 0);
         if (err == ERR_TIMEOUT) {
             client_log_error(CLIENT_LOG_TIMEOUT_SERVER);
             return;
