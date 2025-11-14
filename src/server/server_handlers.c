@@ -240,20 +240,30 @@ void handle_play_move(session_t* session, const msg_play_move_t* move) {
     /* Send result to the player who made the move */
     session_send_move_result(session, &result);
 
-    /* If move was successful, also notify the opponent */
+    /* If move was successful, also notify the opponent and spectators */
     if (err == SUCCESS) {
         game_instance_t* game = game_manager_find_game(g_game_manager, move->game_id);
         if (game) {
             /* Determine opponent's pseudo */
             const char* opponent = (strcmp(game->player_a, session->pseudo) == 0)
-                                    ? game->player_b
-                                    : game->player_a;
+                                     ? game->player_b
+                                     : game->player_a;
 
             /* Find opponent's session and send notification */
             session_t* opponent_session = session_registry_find(opponent);
             if (opponent_session) {
                 session_send_move_result(opponent_session, &result);
             }
+
+            /* Send notification to all spectators */
+            pthread_mutex_lock(&game->lock);
+            for (int i = 0; i < game->spectator_count; i++) {
+                session_t* spectator_session = session_registry_find(game->spectators[i]);
+                if (spectator_session) {
+                    session_send_move_result(spectator_session, &result);
+                }
+            }
+            pthread_mutex_unlock(&game->lock);
 
             /* Check if AI made a move after the human move */
             board_t current_board;
