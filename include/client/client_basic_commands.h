@@ -15,5 +15,8 @@ void cmd_chat(void);
 void cmd_friend_management(void);
 void cmd_list_saved_games(void);
 void cmd_view_saved_game(void);
+void cmd_profile(void);
+void cmd_tutorial(void);
+void cmd_start_ai_game(void);
 
 #endif /* CLIENT_BASIC_COMMANDS_H */

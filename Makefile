@@ -4,7 +4,7 @@
 # Compiler and flags
 CC := gcc
 CFLAGS := -Wall -Wextra -Werror -std=c11 -O2 -I./include
-LDFLAGS := -pthread -lz
+LDFLAGS := -pthread -lz -lm
 
 # Directories
 SRC_DIR := src

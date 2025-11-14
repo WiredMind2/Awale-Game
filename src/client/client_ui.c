@@ -9,9 +9,14 @@
 #include "../../include/common/types.h"
 #include "../../include/game/board.h"
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <termios.h>
+#include <unistd.h>
+#include <fcntl.h>
 
+#include "client/client_ui_strings.h"
 void print_banner(void) {
     printf(CLIENT_UI_BANNER_LINE1);
     printf(CLIENT_UI_BANNER_LINE2);
@@ -21,6 +26,7 @@ void print_banner(void) {
 }
 
 void print_menu(void) {
+    system("clear");
     int pending = pending_challenges_count();
     int active = active_games_count();
 
@@ -28,29 +34,99 @@ void print_menu(void) {
     printf(CLIENT_UI_MENU_LINE2);
     printf(CLIENT_UI_MENU_LINE3);
     printf(CLIENT_UI_MENU_LINE4);
-    printf(CLIENT_UI_MENU_OPTION1);
-    printf(CLIENT_UI_MENU_OPTION2);
-    printf(CLIENT_UI_MENU_OPTION3);
-    if (pending > 0) {
-    printf(CLIENT_UI_MENU_PENDING, pending);
-    }
-    printf(CLIENT_UI_MENU_LINE5);
-    printf(CLIENT_UI_MENU_OPTION4);
-    printf(CLIENT_UI_MENU_OPTION5);
-    printf(CLIENT_UI_MENU_OPTION6);
-    printf(CLIENT_UI_MENU_OPTION7);
-    printf(CLIENT_UI_MENU_OPTION8);
+    printf("%-32s%-24s\n", MENU_OPTION_1, MENU_OPTION_7);
+    printf("%-32s%-24s", MENU_OPTION_2, MENU_OPTION_8);
     if (active > 0) {
-        printf(CLIENT_UI_MENU_ACTIVE, active, active > 1 ? "s" : "");
+        printf(UI_ACTIVE_GAMES, active, active > 1 ? "s" : "");
     }
-    printf(CLIENT_UI_MENU_LINE6);
-    printf(CLIENT_UI_MENU_OPTION9);
-    printf(CLIENT_UI_MENU_OPTION10);
-    printf(CLIENT_UI_MENU_OPTION11);
-    printf(CLIENT_UI_MENU_OPTION12);
-    printf(CLIENT_UI_MENU_OPTION13);
+    printf("\n");
+    printf("%-32s", MENU_OPTION_3);
+    if (pending > 0) {
+        printf(UI_PENDING_CHALLENGES, pending);
+    }
+    printf("%-24s\n", MENU_OPTION_9);
+    printf("%-32s%-24s\n", MENU_OPTION_4, MENU_OPTION_10);
+    printf("%-32s%-24s\n", MENU_OPTION_5, MENU_OPTION_11);
+    printf("%-32s%-24s\n", MENU_OPTION_6, MENU_OPTION_12);
+    printf("%-32s\n", MENU_OPTION_13);
     printf(CLIENT_UI_MENU_LINE7);
     printf(CLIENT_UI_MENU_PROMPT);
+}
+
+void print_menu_highlighted(int selected_option) {
+    system("clear");
+    int pending = pending_challenges_count();
+    int active = active_games_count();
+
+    printf(CLIENT_UI_MENU_LINE1);
+    printf(CLIENT_UI_MENU_LINE2);
+    printf(CLIENT_UI_MENU_LINE3);
+    printf(CLIENT_UI_MENU_LINE4);
+
+    printf("%s%-32s%s%s%-24s%s\n",
+            selected_option == 1 ? ANSI_COLOR_GREEN ANSI_COLOR_BOLD : "",
+            MENU_OPTION_1,
+            selected_option == 1 ? ANSI_COLOR_RESET : "",
+            selected_option == 7 ? ANSI_COLOR_GREEN ANSI_COLOR_BOLD : "",
+            MENU_OPTION_7,
+            selected_option == 7 ? ANSI_COLOR_RESET : "");
+
+    printf("%s%-32s%s%s%-24s%s",
+            selected_option == 2 ? ANSI_COLOR_GREEN ANSI_COLOR_BOLD : "",
+            MENU_OPTION_2,
+            selected_option == 2 ? ANSI_COLOR_RESET : "",
+            selected_option == 8 ? ANSI_COLOR_GREEN ANSI_COLOR_BOLD : "",
+            MENU_OPTION_8,
+            selected_option == 8 ? ANSI_COLOR_RESET : "");
+    if (active > 0) {
+        printf(UI_ACTIVE_GAMES, active, active > 1 ? "s" : "");
+    }
+    printf("\n");
+
+    printf("%s%-32s%s",
+            selected_option == 3 ? ANSI_COLOR_GREEN ANSI_COLOR_BOLD : "",
+            MENU_OPTION_3,
+            selected_option == 3 ? ANSI_COLOR_RESET : "");
+    if (pending > 0) {
+        printf(UI_PENDING_CHALLENGES, pending);
+    }
+    printf("%s%-24s%s\n",
+            selected_option == 9 ? ANSI_COLOR_GREEN ANSI_COLOR_BOLD : "",
+            MENU_OPTION_9,
+            selected_option == 9 ? ANSI_COLOR_RESET : "");
+
+    printf("%s%-32s%s%s%-24s%s\n",
+            selected_option == 4 ? ANSI_COLOR_GREEN ANSI_COLOR_BOLD : "",
+            MENU_OPTION_4,
+            selected_option == 4 ? ANSI_COLOR_RESET : "",
+            selected_option == 10 ? ANSI_COLOR_GREEN ANSI_COLOR_BOLD : "",
+            MENU_OPTION_10,
+            selected_option == 10 ? ANSI_COLOR_RESET : "");
+
+    printf("%s%-32s%s%s%-24s%s\n",
+            selected_option == 5 ? ANSI_COLOR_GREEN ANSI_COLOR_BOLD : "",
+            MENU_OPTION_5,
+            selected_option == 5 ? ANSI_COLOR_RESET : "",
+            selected_option == 11 ? ANSI_COLOR_GREEN ANSI_COLOR_BOLD : "",
+            MENU_OPTION_11,
+            selected_option == 11 ? ANSI_COLOR_RESET : "");
+
+    printf("%s%-32s%s%s%-24s%s\n",
+            selected_option == 6 ? ANSI_COLOR_GREEN ANSI_COLOR_BOLD : "",
+            MENU_OPTION_6,
+            selected_option == 6 ? ANSI_COLOR_RESET : "",
+            selected_option == 12 ? ANSI_COLOR_GREEN ANSI_COLOR_BOLD : "",
+            MENU_OPTION_12,
+            selected_option == 12 ? ANSI_COLOR_RESET : "");
+
+    printf("%s%-32s%s\n",
+            selected_option == 13 ? ANSI_COLOR_GREEN ANSI_COLOR_BOLD : "",
+            MENU_OPTION_13,
+            selected_option == 13 ? ANSI_COLOR_RESET : "");
+
+    printf(CLIENT_UI_MENU_LINE7);
+    printf(UI_NAVIGATION_PROMPT);
+    fflush(stdout);
 }
 
 void print_board(const msg_board_state_t* board) {
@@ -142,6 +218,7 @@ void ui_display_challenge_error(const char* error_msg) {
 }
 
 void ui_display_pending_challenges(int count) {
+    system("clear");
     if (count == 0) {
         printf(CLIENT_UI_NO_CHALLENGES);
         return;
@@ -272,7 +349,7 @@ void ui_display_challenge_received(const msg_challenge_received_t* notif) {
     printf(CLIENT_UI_NOTIFICATION_CHALLENGE);
     printf(CLIENT_UI_NOTIFICATION_MESSAGE, notif->message);
     printf(CLIENT_UI_NOTIFICATION_SEPARATOR);
-    printf("Use option 3 in main menu to view and respond to this challenge.\n");
+    printf(UI_CHALLENGE_HINT);
     printf(CLIENT_UI_NOTIFICATION_SEPARATOR);
     fflush(stdout);
 }
@@ -282,7 +359,7 @@ void ui_display_game_started(const msg_game_started_t* start) {
     printf(CLIENT_UI_GAME_STARTED_TITLE);
     printf(CLIENT_UI_GAME_STARTED_ID, start->game_id);
     printf(CLIENT_UI_GAME_STARTED_PLAYERS, start->player_a, start->player_b);
-    printf(CLIENT_UI_GAME_STARTED_YOUR_SIDE, (start->your_side == PLAYER_A) ? "Player A" : "Player B");
+    printf(CLIENT_UI_GAME_STARTED_YOUR_SIDE, (start->your_side == PLAYER_A) ? BOARD_PLAYER_A : BOARD_PLAYER_B);
     printf(CLIENT_UI_GAME_STARTED_HINT);
     printf(CLIENT_UI_GAME_STARTED_SEPARATOR);
     printf(CLIENT_UI_GAME_STARTED_PROMPT);
@@ -385,9 +462,9 @@ void ui_display_board_detailed(const board_t* board, const char* player_a_name, 
     printf(CLIENT_UI_BOARD_DETAILED_LINE3);
     printf(CLIENT_UI_BOARD_DETAILED_LINE4);
     printf(CLIENT_UI_BOARD_DETAILED_PLAYER_B,
-           player_b_name ? player_b_name : "Player B",
-           board->scores[1],
-           (board->current_player == PLAYER_B) ? "← À TOI!" : "");
+            player_b_name ? player_b_name : BOARD_PLAYER_B,
+            board->scores[1],
+            (board->current_player == PLAYER_B) ? BOARD_ARROW_LEFT : "");
     printf(CLIENT_UI_BOARD_DETAILED_LINE5);
 
     printf(CLIENT_UI_BOARD_DETAILED_TOP_ROW);
@@ -403,32 +480,76 @@ void ui_display_board_detailed(const board_t* board, const char* player_a_name, 
     printf(CLIENT_UI_BOARD_DETAILED_BOTTOM_ROW);
     printf(CLIENT_UI_BOARD_DETAILED_LINE6);
     printf(CLIENT_UI_BOARD_DETAILED_PLAYER_A,
-           (board->current_player == PLAYER_A) ? "À TOI! →" : "",
-           player_a_name ? player_a_name : "Player A",
-           board->scores[0]);
+            (board->current_player == PLAYER_A) ? BOARD_ARROW_RIGHT : "",
+            player_a_name ? player_a_name : BOARD_PLAYER_A,
+            board->scores[0]);
     printf(CLIENT_UI_BOARD_DETAILED_LINE7);
 
     if (board->state == GAME_STATE_FINISHED) {
         printf(CLIENT_UI_BOARD_DETAILED_GAME_OVER);
         if (board->winner == WINNER_A) {
-            printf(CLIENT_UI_BOARD_DETAILED_WINNER_A, player_a_name ? player_a_name : "Player A");
+            printf(CLIENT_UI_BOARD_DETAILED_WINNER_A, player_a_name ? player_a_name : BOARD_PLAYER_A);
         } else if (board->winner == WINNER_B) {
-            printf(CLIENT_UI_BOARD_DETAILED_WINNER_B, player_b_name ? player_b_name : "Player B");
+            printf(CLIENT_UI_BOARD_DETAILED_WINNER_B, player_b_name ? player_b_name : BOARD_PLAYER_B);
         } else {
             printf(CLIENT_UI_BOARD_DETAILED_DRAW);
         }
     } else {
         printf(CLIENT_UI_BOARD_DETAILED_CURRENT_TURN,
-               (board->current_player == PLAYER_A) ?
-               (player_a_name ? player_a_name : "Player A") :
-               (player_b_name ? player_b_name : "Player B"));
+                (board->current_player == PLAYER_A) ?
+                (player_a_name ? player_a_name : BOARD_PLAYER_A) :
+                (player_b_name ? player_b_name : BOARD_PLAYER_B));
     }
     printf(CLIENT_UI_BOARD_DETAILED_LINE8);
     printf(CLIENT_UI_BOARD_DETAILED_LINE9);
 }
 
+/* Profile management UI functions */
+void ui_display_profile_menu(void) {
+    system("clear");
+    printf(CLIENT_UI_PROFILE_MENU_HEADER);
+    printf(CLIENT_UI_PROFILE_MENU_SEPARATOR);
+    printf(CLIENT_UI_PROFILE_MENU_OPTION1);
+    printf(CLIENT_UI_PROFILE_MENU_OPTION2);
+    printf(CLIENT_UI_PROFILE_MENU_OPTION3);
+    printf(CLIENT_UI_PROFILE_MENU_OPTION4);
+    printf(CLIENT_UI_PROFILE_MENU_SEPARATOR);
+    printf(CLIENT_UI_PROFILE_MENU_PROMPT);
+}
+
+void ui_display_profile_menu_highlighted(int selected_option) {
+    system("clear");
+    printf(CLIENT_UI_PROFILE_MENU_HEADER);
+    printf(CLIENT_UI_PROFILE_MENU_SEPARATOR);
+
+    /* Option 1 */
+    if (selected_option == 1) printf(ANSI_COLOR_GREEN ANSI_COLOR_BOLD);
+    printf(CLIENT_UI_PROFILE_MENU_OPTION1);
+    if (selected_option == 1) printf(ANSI_COLOR_RESET);
+
+    /* Option 2 */
+    if (selected_option == 2) printf(ANSI_COLOR_GREEN ANSI_COLOR_BOLD);
+    printf(CLIENT_UI_PROFILE_MENU_OPTION2);
+    if (selected_option == 2) printf(ANSI_COLOR_RESET);
+
+    /* Option 3 */
+    if (selected_option == 3) printf(ANSI_COLOR_GREEN ANSI_COLOR_BOLD);
+    printf(CLIENT_UI_PROFILE_MENU_OPTION3);
+    if (selected_option == 3) printf(ANSI_COLOR_RESET);
+
+    /* Option 4 */
+    if (selected_option == 4) printf(ANSI_COLOR_GREEN ANSI_COLOR_BOLD);
+    printf(CLIENT_UI_PROFILE_MENU_OPTION4);
+    if (selected_option == 4) printf(ANSI_COLOR_RESET);
+
+    printf(CLIENT_UI_PROFILE_MENU_SEPARATOR);
+    printf(UI_NAVIGATION_PROMPT);
+    fflush(stdout);
+}
+
 /* Friend management UI functions */
 void ui_display_friend_menu(void) {
+    system("clear");
     printf(CLIENT_UI_FRIEND_MENU_HEADER);
     printf(CLIENT_UI_FRIEND_MENU_SEPARATOR);
     printf(CLIENT_UI_FRIEND_MENU_OPTION1);
@@ -437,6 +558,36 @@ void ui_display_friend_menu(void) {
     printf(CLIENT_UI_FRIEND_MENU_OPTION4);
     printf(CLIENT_UI_FRIEND_MENU_SEPARATOR);
     printf(CLIENT_UI_FRIEND_MENU_PROMPT);
+}
+
+void ui_display_friend_menu_highlighted(int selected_option) {
+    system("clear");
+    printf(CLIENT_UI_FRIEND_MENU_HEADER);
+    printf(CLIENT_UI_FRIEND_MENU_SEPARATOR);
+
+    /* Option 1 */
+    if (selected_option == 1) printf(ANSI_COLOR_GREEN ANSI_COLOR_BOLD);
+    printf(CLIENT_UI_FRIEND_MENU_OPTION1);
+    if (selected_option == 1) printf(ANSI_COLOR_RESET);
+
+    /* Option 2 */
+    if (selected_option == 2) printf(ANSI_COLOR_GREEN ANSI_COLOR_BOLD);
+    printf(CLIENT_UI_FRIEND_MENU_OPTION2);
+    if (selected_option == 2) printf(ANSI_COLOR_RESET);
+
+    /* Option 3 */
+    if (selected_option == 3) printf(ANSI_COLOR_GREEN ANSI_COLOR_BOLD);
+    printf(CLIENT_UI_FRIEND_MENU_OPTION3);
+    if (selected_option == 3) printf(ANSI_COLOR_RESET);
+
+    /* Option 4 */
+    if (selected_option == 4) printf(ANSI_COLOR_GREEN ANSI_COLOR_BOLD);
+    printf(CLIENT_UI_FRIEND_MENU_OPTION4);
+    if (selected_option == 4) printf(ANSI_COLOR_RESET);
+
+    printf(CLIENT_UI_FRIEND_MENU_SEPARATOR);
+    printf(UI_NAVIGATION_PROMPT);
+    fflush(stdout);
 }
 
 void ui_display_friend_list(const msg_list_friends_t* friends) {
@@ -451,4 +602,95 @@ void ui_display_friend_list(const msg_list_friends_t* friends) {
         }
     }
     printf(CLIENT_UI_FRIEND_LIST_FOOTER);
+}
+
+/* Input handling functions for arrow navigation */
+
+int getch(void) {
+    struct termios oldt, newt;
+    int ch;
+    tcgetattr(STDIN_FILENO, &oldt);
+    newt = oldt;
+    newt.c_lflag &= ~(ICANON | ECHO);
+    tcsetattr(STDIN_FILENO, TCSANOW, &newt);
+    ch = getchar();
+    tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
+    return ch;
+}
+
+int kbhit(void) {
+    struct termios oldt, newt;
+    int ch;
+    int oldf;
+
+    tcgetattr(STDIN_FILENO, &oldt);
+    newt = oldt;
+    newt.c_lflag &= ~(ICANON | ECHO);
+    tcsetattr(STDIN_FILENO, TCSANOW, &newt);
+    oldf = fcntl(STDIN_FILENO, F_GETFL, 0);
+    fcntl(STDIN_FILENO, F_SETFL, oldf | O_NONBLOCK);
+
+    ch = getchar();
+
+    tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
+    fcntl(STDIN_FILENO, F_SETFL, oldf);
+
+    if (ch != EOF) {
+        ungetc(ch, stdin);
+        return 1;
+    }
+
+    return 0;
+}
+
+int read_arrow_input(int* current_selection, int min_option, int max_option) {
+    int ch = getch();
+
+    if (ch == 27) { /* ESC - check for arrow keys */
+        /* Set non-blocking to check for more input */
+        struct termios oldt, newt;
+        tcgetattr(STDIN_FILENO, &oldt);
+        newt = oldt;
+        newt.c_lflag &= ~(ICANON | ECHO);
+        tcsetattr(STDIN_FILENO, TCSANOW, &newt);
+
+        int oldf = fcntl(STDIN_FILENO, F_GETFL, 0);
+        fcntl(STDIN_FILENO, F_SETFL, oldf | O_NONBLOCK);
+
+        /* Brief pause for arrow key sequence (non-blocking read should handle this) */
+
+        int ch2 = getchar();
+        if (ch2 != EOF && ch2 == 91) { /* [ */
+            int ch3 = getchar();
+            if (ch3 == 65 && *current_selection > min_option) { /* Up arrow */
+                (*current_selection)--;
+            } else if (ch3 == 66 && *current_selection < max_option) { /* Down arrow */
+                (*current_selection)++;
+            }
+            /* Consume any remaining chars */
+            while (getchar() != EOF);
+        } else {
+            /* Not an arrow key, put back the char if any */
+            if (ch2 != EOF) ungetc(ch2, stdin);
+            /* Restore terminal and return ESC */
+            tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
+            fcntl(STDIN_FILENO, F_SETFL, oldf);
+            return -1;
+        }
+
+        /* Restore terminal */
+        tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
+        fcntl(STDIN_FILENO, F_SETFL, oldf);
+
+    } else if (ch == 10 || ch == 13) { /* Enter */
+        return *current_selection;
+    } else if (ch >= '0' && ch <= '9') { /* Number input */
+        int num = ch - '0';
+        if (num >= min_option && num <= max_option) {
+            *current_selection = num;
+            return num;
+        }
+    }
+
+    return 0; /* Continue */
 }

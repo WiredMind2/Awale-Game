@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
+#include "../../include/client/client_ui_strings.h"
 
 error_code_t board_init(board_t* board) {
     if (!board) return ERR_INVALID_PARAM;

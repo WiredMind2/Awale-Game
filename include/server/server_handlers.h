@@ -79,4 +79,7 @@ void handle_list_saved_games(session_t* session, const msg_list_saved_games_t* r
 /* Handle MSG_VIEW_SAVED_GAME - View a saved game */
 void handle_view_saved_game(session_t* session, const msg_view_saved_game_t* req);
 
+/* Handle MSG_START_AI_GAME - Start a game against AI */
+void handle_start_ai_game(session_t* session);
+
 #endif /* SERVER_HANDLERS_H */

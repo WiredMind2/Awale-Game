@@ -1,5 +1,6 @@
 #include "../../include/server/matchmaking.h"
 #include "../../include/server/storage.h"
+#include "../../include/game/elo.h"
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -9,22 +10,25 @@ static int64_t g_next_challenge_id = 1;
 
 error_code_t matchmaking_init(matchmaking_t* mm) {
     if (!mm) return ERR_INVALID_PARAM;
-    
+
     mm->challenge_count = 0;
     mm->player_count = 0;
     pthread_mutex_init(&mm->lock, NULL);
-    
+
     for (int i = 0; i < MAX_CHALLENGES; i++) {
         mm->challenges[i].active = false;
     }
-    
+
     for (int i = 0; i < MAX_PLAYERS; i++) {
         mm->players[i].connected = false;
     }
-    
+
     // Load persisted player data
     storage_load_players(mm);
-    
+
+    // Add AI bot as a permanent player
+    matchmaking_add_player(mm, AI_BOT_PSEUDO, "127.0.0.1");
+
     return SUCCESS;
 }
 
@@ -59,7 +63,17 @@ error_code_t matchmaking_add_player(matchmaking_t* mm, const char* pseudo, const
     strncpy(player->info.ip, ip, MAX_IP_LEN - 1);
     player->connected = true;
     player->last_seen = time(NULL);
-    
+    player->info.first_seen = time(NULL);
+
+    /* Initialize statistics */
+    player->info.games_played = 0;
+    player->info.games_won = 0;
+    player->info.games_lost = 0;
+    player->info.total_score = 0;
+    player->info.elo_rating = ELO_DEFAULT_RATING;
+    player->info.bio_lines = 0;
+    player->info.friend_count = 0;
+
     mm->player_count++;
     
     pthread_mutex_unlock(&mm->lock);
@@ -83,18 +97,26 @@ error_code_t matchmaking_remove_player(matchmaking_t* mm, const char* pseudo) {
     return SUCCESS;  /* Not an error if player not found */
 }
 
-error_code_t matchmaking_create_challenge(matchmaking_t* mm, const char* challenger, 
-                                         const char* opponent, bool* mutual_found) {
+error_code_t matchmaking_create_challenge(matchmaking_t* mm, const char* challenger,
+                                          const char* opponent, bool* mutual_found) {
     if (!mm || !challenger || !opponent || !mutual_found) return ERR_INVALID_PARAM;
-    
+
     *mutual_found = false;
-    
+
     pthread_mutex_lock(&mm->lock);
-    
+
+    // Prevent AI vs AI games
+    bool challenger_is_ai = (strcmp(challenger, AI_BOT_PSEUDO) == 0);
+    bool opponent_is_ai = (strcmp(opponent, AI_BOT_PSEUDO) == 0);
+    if (challenger_is_ai && opponent_is_ai) {
+        pthread_mutex_unlock(&mm->lock);
+        return ERR_INVALID_PARAM; // Cannot challenge AI with AI
+    }
+
     // Check for mutual challenge
     for (int i = 0; i < mm->challenge_count; i++) {
         if (!mm->challenges[i].active) continue;
-        
+
         if (strcmp(mm->challenges[i].challenger, opponent) == 0 &&
             strcmp(mm->challenges[i].opponent, challenger) == 0) {
             *mutual_found = true;
@@ -103,13 +125,13 @@ error_code_t matchmaking_create_challenge(matchmaking_t* mm, const char* challen
             return SUCCESS;
         }
     }
-    
+
     // Add new challenge
     if (mm->challenge_count >= MAX_CHALLENGES) {
         pthread_mutex_unlock(&mm->lock);
         return ERR_MAX_CAPACITY;
     }
-    
+
     for (int i = 0; i < MAX_CHALLENGES; i++) {
         if (!mm->challenges[i].active) {
             strncpy(mm->challenges[i].challenger, challenger, MAX_PSEUDO_LEN - 1);
@@ -120,16 +142,18 @@ error_code_t matchmaking_create_challenge(matchmaking_t* mm, const char* challen
             break;
         }
     }
-    
+
     pthread_mutex_unlock(&mm->lock);
     return SUCCESS;
 }
 
 error_code_t matchmaking_get_players(matchmaking_t* mm, player_info_t* players, int max_players, int* count) {
     if (!mm || !players || !count) return ERR_INVALID_PARAM;
-    
+
+    printf("DEBUG: matchmaking_get_players locking mutex\n");
     pthread_mutex_lock(&mm->lock);
-    
+    printf("DEBUG: matchmaking_get_players locked mutex, player_count=%d\n", mm->player_count);
+
     *count = 0;
     for (int i = 0; i < mm->player_count && *count < max_players; i++) {
         if (mm->players[i].connected) {
@@ -137,8 +161,10 @@ error_code_t matchmaking_get_players(matchmaking_t* mm, player_info_t* players, 
             (*count)++;
         }
     }
-    
+    printf("DEBUG: matchmaking_get_players found %d connected players\n", *count);
+
     pthread_mutex_unlock(&mm->lock);
+    printf("DEBUG: matchmaking_get_players unlocked mutex\n");
     return SUCCESS;
 }
 
@@ -178,12 +204,12 @@ error_code_t matchmaking_remove_challenge(matchmaking_t* mm, const char* challen
     return ERR_GAME_NOT_FOUND;  /* Challenge not found */
 }
 
-error_code_t matchmaking_update_player_stats(matchmaking_t* mm, const char* pseudo, 
+error_code_t matchmaking_update_player_stats(matchmaking_t* mm, const char* pseudo,
                                             bool game_won, int score_earned) {
     if (!mm || !pseudo) return ERR_INVALID_PARAM;
-    
+
     pthread_mutex_lock(&mm->lock);
-    
+
     for (int i = 0; i < mm->player_count; i++) {
         if (strcmp(mm->players[i].info.pseudo, pseudo) == 0) {
             mm->players[i].info.games_played++;
@@ -193,24 +219,79 @@ error_code_t matchmaking_update_player_stats(matchmaking_t* mm, const char* pseu
                 mm->players[i].info.games_lost++;
             }
             mm->players[i].info.total_score += score_earned;
-            
+
             // Save updated player data to disk
             storage_save_players(mm);
-            
+
             pthread_mutex_unlock(&mm->lock);
             return SUCCESS;
         }
     }
-    
+
     pthread_mutex_unlock(&mm->lock);
     return ERR_PLAYER_NOT_FOUND;
 }
 
+error_code_t matchmaking_update_player_elo(matchmaking_t* mm, const char* winner_pseudo,
+                                          const char* loser_pseudo) {
+    if (!mm || !winner_pseudo || !loser_pseudo) return ERR_INVALID_PARAM;
+
+    pthread_mutex_lock(&mm->lock);
+
+    int winner_rating = ELO_DEFAULT_RATING;
+    int loser_rating = ELO_DEFAULT_RATING;
+    bool winner_found = false;
+    bool loser_found = false;
+
+    // Find winner's current rating
+    for (int i = 0; i < mm->player_count; i++) {
+        if (strcmp(mm->players[i].info.pseudo, winner_pseudo) == 0) {
+            winner_rating = mm->players[i].info.elo_rating;
+            winner_found = true;
+        } else if (strcmp(mm->players[i].info.pseudo, loser_pseudo) == 0) {
+            loser_rating = mm->players[i].info.elo_rating;
+            loser_found = true;
+        }
+    }
+
+    if (!winner_found || !loser_found) {
+        pthread_mutex_unlock(&mm->lock);
+        return ERR_PLAYER_NOT_FOUND;
+    }
+
+    // Calculate new ratings
+    int new_winner_rating = elo_calculate_new_rating(winner_rating, loser_rating, true);
+    int new_loser_rating = elo_calculate_new_rating(loser_rating, winner_rating, false);
+
+    // Update ratings
+    for (int i = 0; i < mm->player_count; i++) {
+        if (strcmp(mm->players[i].info.pseudo, winner_pseudo) == 0) {
+            mm->players[i].info.elo_rating = new_winner_rating;
+        } else if (strcmp(mm->players[i].info.pseudo, loser_pseudo) == 0) {
+            mm->players[i].info.elo_rating = new_loser_rating;
+        }
+    }
+
+    // Save updated player data to disk
+    storage_save_players(mm);
+
+    pthread_mutex_unlock(&mm->lock);
+    return SUCCESS;
+}
+
 error_code_t matchmaking_create_challenge_with_id(matchmaking_t* mm, const char* challenger,
-                                                 const char* opponent, int64_t* challenge_id) {
+                                                  const char* opponent, int64_t* challenge_id) {
     if (!mm || !challenger || !opponent || !challenge_id) return ERR_INVALID_PARAM;
 
     pthread_mutex_lock(&mm->lock);
+
+    // Prevent AI vs AI games
+    bool challenger_is_ai = (strcmp(challenger, AI_BOT_PSEUDO) == 0);
+    bool opponent_is_ai = (strcmp(opponent, AI_BOT_PSEUDO) == 0);
+    if (challenger_is_ai && opponent_is_ai) {
+        pthread_mutex_unlock(&mm->lock);
+        return ERR_INVALID_PARAM; // Cannot challenge AI with AI
+    }
 
     // Check if challenge already exists between these players
     for (int i = 0; i < MAX_CHALLENGES; i++) {

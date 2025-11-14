@@ -33,6 +33,7 @@ typedef enum {
     MSG_SET_BIO,              /* Set player bio */
     MSG_GET_BIO,              /* Get player bio */
     MSG_GET_PLAYER_STATS,     /* Get player statistics */
+    MSG_GET_LEADERBOARD,      /* Get Elo leaderboard */
     MSG_SEND_CHAT,            /* Send chat message */
     MSG_CHAT_MESSAGE,         /* Receive chat message */
     MSG_CHAT_HISTORY,         /* Get chat history */
@@ -41,6 +42,7 @@ typedef enum {
     MSG_LIST_FRIENDS,         /* List friends */
     MSG_LIST_SAVED_GAMES,     /* List saved games for review */
     MSG_VIEW_SAVED_GAME,      /* View a saved game */
+    MSG_START_AI_GAME,        /* Start a game against AI */
 
     /* Server responses for saved games */
     MSG_SAVED_GAME_LIST,      /* List of saved games */
@@ -56,13 +58,15 @@ typedef enum {
     MSG_MOVE_RESULT,
     MSG_BOARD_STATE,
     MSG_GAME_OVER,
+    MSG_UPDATE_RATING,        /* Notify client of Elo rating update */
     MSG_CHALLENGE_LIST,
     MSG_GAME_LIST,            /* List of ongoing games */
     MSG_MY_GAME_LIST,         /* List of player's games */
     MSG_SPECTATE_ACK,         /* Confirmation of spectate start */
     MSG_SPECTATOR_JOINED,     /* Notify players/spectators of new spectator */
     MSG_BIO_RESPONSE,         /* Bio data response */
-    MSG_PLAYER_STATS          /* Player statistics response */
+    MSG_PLAYER_STATS,         /* Player statistics response */
+    MSG_LEADERBOARD           /* Elo leaderboard response */
 } message_type_t;
 
 /* Notification message type filter */
@@ -83,7 +87,7 @@ typedef struct {
 } message_header_t;
 
 /* Maximum message size */
-#define MAX_MESSAGE_SIZE 8192
+#define MAX_MESSAGE_SIZE 65536
 #define HEADER_SIZE sizeof(message_header_t)
 #define MAX_PAYLOAD_SIZE (MAX_MESSAGE_SIZE - HEADER_SIZE)
 

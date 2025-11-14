@@ -9,9 +9,25 @@
 #include "../game/board.h"
 #include <stddef.h>
 
+/* ANSI Color Constants */
+#define ANSI_COLOR_RESET   "\x1b[0m"
+#define ANSI_COLOR_GREEN   "\x1b[32m"
+#define ANSI_COLOR_YELLOW  "\x1b[33m"
+#define ANSI_COLOR_RED     "\x1b[31m"
+#define ANSI_COLOR_BLUE    "\x1b[34m"
+#define ANSI_COLOR_CYAN    "\x1b[36m"
+#define ANSI_COLOR_WHITE   "\x1b[37m"
+#define ANSI_COLOR_BOLD    "\x1b[1m"
+
+/* Input handling functions */
+int getch(void);
+int kbhit(void);
+int read_arrow_input(int* current_selection, int min_option, int max_option);
+
 /* Banner and menu functions */
 void print_banner(void);
 void print_menu(void);
+void print_menu_highlighted(int selected_option);
 
 /* Board display */
 void print_board(const msg_board_state_t* board);
@@ -47,8 +63,13 @@ void ui_display_turn_info(int is_your_turn, const int* legal_moves, int count);
 void ui_display_waiting_for_opponent(void);
 void ui_display_play_error(const char* error);
 
+/* Profile management UI */
+void ui_display_profile_menu(void);
+void ui_display_profile_menu_highlighted(int selected_option);
+
 /* Friend management UI */
 void ui_display_friend_menu(void);
+void ui_display_friend_menu_highlighted(int selected_option);
 void ui_display_friend_list(const msg_list_friends_t* friends);
 
 #endif /* CLIENT_UI_H */

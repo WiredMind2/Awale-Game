@@ -223,6 +223,10 @@ void* client_handler(void* arg) {
                 break;
             }
 
+            case MSG_START_AI_GAME:
+                handle_start_ai_game(&session);
+                break;
+
             case MSG_DISCONNECT:
                 printf("Client %s requested disconnect\n", session.pseudo);
                 goto cleanup;

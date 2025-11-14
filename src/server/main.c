@@ -132,6 +132,7 @@ int main(int argc, char** argv) {
 
     printf("Discovery server listening on port %d\n", g_discovery_port);
     printf("\nServer ready! Waiting for connections...\n\n");
+    fflush(stdout);
 
     /* Accept loop */
     time_t last_cleanup = time(NULL);

@@ -119,6 +119,13 @@ typedef struct {
     char message[256];
 } msg_game_over_t;
 
+/* MSG_UPDATE_RATING */
+typedef struct {
+    char player[MAX_PSEUDO_LEN];
+    int new_rating;
+    int rating_change;
+} msg_update_rating_t;
+
 /* MSG_GET_CHALLENGES / MSG_CHALLENGE_LIST */
 typedef struct {
     int count;
@@ -186,6 +193,23 @@ typedef struct {
     char target_player[MAX_PSEUDO_LEN];
 } msg_get_player_stats_t;
 
+/* MSG_GET_LEADERBOARD */
+typedef struct {
+    int max_entries;  /* Maximum number of entries to return */
+} msg_get_leaderboard_t;
+
+/* MSG_LEADERBOARD */
+typedef struct {
+    int count;
+    struct {
+        char player[MAX_PSEUDO_LEN];
+        int elo_rating;
+        int games_played;
+        int games_won;
+        int games_lost;
+    } entries[50];  /* Max 50 entries */
+} msg_leaderboard_t;
+
 /* MSG_PLAYER_STATS */
 typedef struct {
     bool success;
@@ -194,6 +218,7 @@ typedef struct {
     int games_won;
     int games_lost;
     int total_score;
+    int elo_rating;
     time_t first_seen;
     time_t last_seen;
     char message[256];  /* Error message if success=false */
@@ -245,6 +270,11 @@ typedef struct {
 typedef struct {
     char game_id[MAX_GAME_ID_LEN];
 } msg_view_saved_game_t;
+
+/* MSG_START_AI_GAME - No payload needed, server uses session pseudo */
+typedef struct {
+    /* Empty structure */
+} msg_start_ai_game_t;
 
 /* MSG_SAVED_GAME_LIST */
 typedef struct {

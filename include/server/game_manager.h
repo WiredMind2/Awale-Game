@@ -60,6 +60,10 @@ error_code_t game_manager_add_spectator(game_manager_t* manager, const char* gam
 error_code_t game_manager_remove_spectator(game_manager_t* manager, const char* game_id, const char* spectator);
 int game_manager_get_spectator_count(game_manager_t* manager, const char* game_id);
 
+/* AI management */
+bool game_manager_is_ai_player(const char* player);
+error_code_t game_manager_make_ai_move(game_manager_t* manager, const char* game_id);
+
 /* Game ID generation */
 void game_manager_generate_id(const char* player_a, const char* player_b, char* game_id);
 

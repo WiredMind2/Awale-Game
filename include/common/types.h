@@ -16,6 +16,7 @@
 #define INITIAL_SEEDS_PER_PIT 4
 #define TOTAL_SEEDS 48
 #define WIN_SCORE 25
+#define AI_BOT_PSEUDO "AI_Bot"
 
 /* Error codes */
 typedef enum {
@@ -68,6 +69,7 @@ typedef struct {
     int games_won;
     int games_lost;
     int total_score;
+    int elo_rating;  /* Elo rating, default 1200 */
     time_t first_seen;
     time_t last_seen;
     /* Bio (10 lines of 256 characters each) */

@@ -9,7 +9,7 @@
 #define CLIENT_LOG_MISSING_PSEUDO "Il manque le pseudo. Usage: %s <pseudo> [-s server_ip]\n"
 #define CLIENT_LOG_PLAYER_NAME "Joueur: %s\n"
 #define CLIENT_LOG_WAITING_NOTIFICATION "En attente de notification\n"
-#define CLIENT_LOG_INVALID_CHOICE "Choix invalide. Veuillez sélectionner 1-10.\n"
+#define CLIENT_LOG_INVALID_CHOICE "Choix invalide. Veuillez sélectionner 1-12.\n"
 #define CLIENT_LOG_DISCONNECTING "Déconnexion...\n"
 #define CLIENT_LOG_GOODBYE "Au revoir !\n\n"
 #define CLIENT_LOG_BROADCAST_DISCOVERY "Diffusion de la demande de découverte sur le réseau local...\n"

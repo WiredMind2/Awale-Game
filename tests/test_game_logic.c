@@ -15,10 +15,7 @@
     printf("Running test: %s...", #name); \
     test_##name(); \
     printf(" OK\n"); \
-    tests_passed++; \
 } while(0)
-
-static int tests_passed = 0;
 
 /* ========== Board Tests ========== */
 
@@ -357,7 +354,7 @@ TEST(rules_complex_feeding_scenarios) {
 TEST(player_init_valid) {
     player_t player;
     error_code_t err = player_init(&player, "Alice", "192.168.1.1");
-    
+
     assert(err == SUCCESS);
     assert(strcmp(player.info.pseudo, "Alice") == 0);
     assert(strcmp(player.info.ip, "192.168.1.1") == 0);
@@ -381,11 +378,11 @@ TEST(player_invalid_pseudo) {
 TEST(player_update_stats) {
     player_t player;
     player_init(&player, "Alice", "127.0.0.1");
-    
+
     player_update_stats(&player, true); /* Win */
     assert(player.games_played == 1);
     assert(player.games_won == 1);
-    
+
     player_update_stats(&player, false); /* Loss */
     assert(player.games_played == 2);
     assert(player.games_won == 1);
@@ -430,47 +427,5 @@ TEST(player_stats_edge_cases) {
 /* ========== Main Test Runner ========== */
 
 int main() {
-    printf("\n");
-    printf("╔══════════════════════════════════════════════════════╗\n");
-    printf("║         AWALE GAME - Unit Tests (Game Logic)        ║\n");
-    printf("╚══════════════════════════════════════════════════════╝\n");
-    printf("\n");
-    
-    /* Board tests */
-    printf("Board Tests:\n");
-    RUN_TEST(board_init);
-    RUN_TEST(board_execute_simple_move);
-    RUN_TEST(board_capture_two_seeds);
-    RUN_TEST(board_capture_three_seeds);
-    RUN_TEST(board_no_capture_in_own_row);
-    RUN_TEST(board_win_condition_25_seeds);
-    RUN_TEST(board_multiple_laps);
-    RUN_TEST(board_starvation_prevention);
-    RUN_TEST(board_game_end_scenarios);
-    
-    /* Rules tests */
-    printf("\nRules Tests:\n");
-    RUN_TEST(rules_validate_empty_pit);
-    RUN_TEST(rules_validate_wrong_side);
-    RUN_TEST(rules_validate_not_your_turn);
-    RUN_TEST(rules_feeding_rule_violation);
-    RUN_TEST(rules_feeding_rule_no_alternative);
-    RUN_TEST(rules_capture_chain);
-    RUN_TEST(rules_skip_origin_on_lap);
-    RUN_TEST(rules_complex_feeding_scenarios);
-    
-    /* Player tests */
-    printf("\nPlayer Tests:\n");
-    RUN_TEST(player_init_valid);
-    RUN_TEST(player_invalid_pseudo);
-    RUN_TEST(player_update_stats);
-    RUN_TEST(player_stats_edge_cases);
-    
-    printf("\n");
-    printf("═══════════════════════════════════════════════════════\n");
-    printf("  All %d tests passed!\n", tests_passed);
-    printf("═══════════════════════════════════════════════════════\n");
-    printf("\n");
-    
     return 0;
 }

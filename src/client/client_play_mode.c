@@ -294,6 +294,7 @@ static void handle_user_input(play_state_t* state, const msg_board_state_t* boar
 }
 
 void cmd_play_mode(void) {
+    system("clear");
     client_log_info(CLIENT_LOG_ENTERING_PLAY_MODE);
 
     /* Get active games count */

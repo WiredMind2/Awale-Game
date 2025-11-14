@@ -59,9 +59,11 @@ int matchmaking_count_challenges(matchmaking_t* mm);
 int matchmaking_count_challenges_for(matchmaking_t* mm, const char* player);
 
 /* Player statistics management */
-error_code_t matchmaking_update_player_stats(matchmaking_t* mm, const char* pseudo, 
+error_code_t matchmaking_update_player_stats(matchmaking_t* mm, const char* pseudo,
                                             bool game_won, int score_earned);
-error_code_t matchmaking_get_player_stats(matchmaking_t* mm, const char* pseudo, 
+error_code_t matchmaking_update_player_elo(matchmaking_t* mm, const char* winner_pseudo,
+                                          const char* loser_pseudo);
+error_code_t matchmaking_get_player_stats(matchmaking_t* mm, const char* pseudo,
                                          player_info_t* info_out);
 
 /* Update player's bio lines */

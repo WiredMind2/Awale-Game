@@ -1,5 +1,7 @@
 #include "../../include/server/game_manager.h"
 #include "../../include/server/storage.h"
+#include "../../include/game/ai.h"
+#include "../../include/common/types.h"
 #include <string.h>
 #include <stdio.h>
 
@@ -139,15 +141,15 @@ game_instance_t* game_manager_find_game_by_players(game_manager_t* manager,
     return NULL;
 }
 
-error_code_t game_manager_play_move(game_manager_t* manager, const char* game_id, 
-                                   const char* player, int pit_index, int* seeds_captured) {
+error_code_t game_manager_play_move(game_manager_t* manager, const char* game_id,
+                                    const char* player, int pit_index, int* seeds_captured) {
     if (!manager || !game_id || !player || !seeds_captured) return ERR_INVALID_PARAM;
-    
+
     game_instance_t* game = game_manager_find_game(manager, game_id);
     if (!game) return ERR_GAME_NOT_FOUND;
-    
+
     pthread_mutex_lock(&game->lock);
-    
+
     // Determine player ID
     player_id_t player_id;
     if (strcmp(game->player_a, player) == 0) {
@@ -158,15 +160,34 @@ error_code_t game_manager_play_move(game_manager_t* manager, const char* game_id
         pthread_mutex_unlock(&game->lock);
         return ERR_PLAYER_NOT_FOUND;
     }
-    
+
     // Execute move
     error_code_t result = board_execute_move(&game->board, player_id, pit_index, seeds_captured);
-    
+
     // Save game state after successful move
     if (result == SUCCESS) {
         storage_save_game(game);
+
+        /* If game is still active and it's now AI's turn, make AI move */
+        if (game->board.state == GAME_STATE_IN_PROGRESS) {
+            const char* next_player;
+            if (game->board.current_player == PLAYER_A) {
+                next_player = game->player_a;
+            } else {
+                next_player = game->player_b;
+            }
+
+            if (game_manager_is_ai_player(next_player)) {
+                /* Make AI move */
+                error_code_t ai_result = game_manager_make_ai_move(manager, game_id);
+                if (ai_result == SUCCESS) {
+                    /* AI move was made, update seeds_captured if needed */
+                    /* Note: We don't update seeds_captured here as it's for the human move */
+                }
+            }
+        }
     }
-    
+
     pthread_mutex_unlock(&game->lock);
     return result;
 }
@@ -299,13 +320,67 @@ error_code_t game_manager_remove_spectator(game_manager_t* manager, const char* 
 
 int game_manager_get_spectator_count(game_manager_t* manager, const char* game_id) {
     if (!manager || !game_id) return 0;
-    
+
     game_instance_t* game = game_manager_find_game(manager, game_id);
     if (!game) return 0;
-    
+
     pthread_mutex_lock(&game->lock);
     int count = game->spectator_count;
     pthread_mutex_unlock(&game->lock);
-    
+
     return count;
+}
+
+/* Check if a player is the AI bot */
+bool game_manager_is_ai_player(const char* player) {
+    return player && strcmp(player, AI_BOT_PSEUDO) == 0;
+}
+
+/* Make AI move if it's AI's turn */
+error_code_t game_manager_make_ai_move(game_manager_t* manager, const char* game_id) {
+    if (!manager || !game_id) return ERR_INVALID_PARAM;
+
+    game_instance_t* game = game_manager_find_game(manager, game_id);
+    if (!game) return ERR_GAME_NOT_FOUND;
+
+    pthread_mutex_lock(&game->lock);
+
+    /* Check if it's AI's turn */
+    const char* current_player_pseudo;
+    if (game->board.current_player == PLAYER_A) {
+        current_player_pseudo = game->player_a;
+    } else {
+        current_player_pseudo = game->player_b;
+    }
+
+    if (!game_manager_is_ai_player(current_player_pseudo)) {
+        pthread_mutex_unlock(&game->lock);
+        return ERR_NOT_YOUR_TURN; /* Not AI's turn */
+    }
+
+    /* Get AI move - use medium difficulty by default */
+    ai_move_t ai_move;
+    error_code_t err = ai_get_best_move(&game->board, game->board.current_player,
+                                       AI_DIFFICULTY_MEDIUM, &ai_move);
+    if (err != SUCCESS) {
+        pthread_mutex_unlock(&game->lock);
+        return err;
+    }
+
+    /* Execute the AI move */
+    int seeds_captured;
+    err = board_execute_move(&game->board, game->board.current_player, ai_move.pit_index, &seeds_captured);
+    if (err != SUCCESS) {
+        pthread_mutex_unlock(&game->lock);
+        return err;
+    }
+
+    /* Save game state */
+    storage_save_game(game);
+
+    printf("AI move: %s played pit %d in %s (captured: %d)\n",
+           current_player_pseudo, ai_move.pit_index, game_id, seeds_captured);
+
+    pthread_mutex_unlock(&game->lock);
+    return SUCCESS;
 }

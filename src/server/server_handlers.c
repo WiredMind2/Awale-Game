@@ -6,6 +6,7 @@
 #include "../../include/server/server_registry.h"
 #include "../../include/server/matchmaking.h"
 #include "../../include/server/storage.h"
+#include "../../include/server/game_manager.h"
 #include "../../include/game/board.h"
 #include "../../include/common/protocol.h"
 #include <stdio.h>
@@ -23,20 +24,32 @@ void handlers_init(game_manager_t* game_mgr, matchmaking_t* matchmaking) {
 
 /* Handle MSG_LIST_PLAYERS */
 void handle_list_players(session_t* session) {
+    printf("DEBUG: handle_list_players started for %s\n", session->pseudo);
     msg_player_list_t list;
     int count;
-    
+
+    printf("DEBUG: Calling matchmaking_get_players\n");
     error_code_t err = matchmaking_get_players(g_matchmaking, list.players, 100, &count);
+    printf("DEBUG: matchmaking_get_players returned %d, count=%d\n", err, count);
     if (err == SUCCESS) {
         list.count = count;
-        
+
         /* Calculate actual size: count field + only the actual number of players */
         size_t actual_size = sizeof(list.count) + (count * sizeof(player_info_t));
-        
-        session_send_message(session, MSG_PLAYER_LIST, &list, actual_size);
+        printf("DEBUG: Calculated actual_size=%zu\n", actual_size);
+
+        printf("DEBUG: Calling session_send_message\n");
+        error_code_t send_err = session_send_message(session, MSG_PLAYER_LIST, &list, actual_size);
+        printf("DEBUG: session_send_message returned %d\n", send_err);
+        if (send_err != SUCCESS) {
+            printf("DEBUG: Send failed, sending error\n");
+            session_send_error(session, send_err, "Failed to send player list");
+        }
     } else {
+        printf("DEBUG: matchmaking_get_players failed, sending error\n");
         session_send_error(session, err, "Failed to get player list");
     }
+    printf("DEBUG: handle_list_players completed for %s\n", session->pseudo);
 }
 
 /* Handle MSG_CHALLENGE - New notification-based approach */
@@ -163,79 +176,105 @@ void handle_get_challenges(session_t* session) {
 /* Handle MSG_PLAY_MOVE */
 void handle_play_move(session_t* session, const msg_play_move_t* move) {
     int seeds_captured = 0;
-    
-    error_code_t err = game_manager_play_move(g_game_manager, move->game_id, 
-                                              session->pseudo, move->pit_index, &seeds_captured);
-    
+
+    error_code_t err = game_manager_play_move(g_game_manager, move->game_id,
+                                               session->pseudo, move->pit_index, &seeds_captured);
+
     msg_move_result_t result;
     result.success = (err == SUCCESS);
     result.seeds_captured = seeds_captured;
-    
+
     if (err == SUCCESS) {
-        snprintf(result.message, 255, "Move executed: pit %d, captured %d seeds", 
+        snprintf(result.message, 255, "Move executed: pit %d, captured %d seeds",
                  move->pit_index, seeds_captured);
-        
+
         /* Get game instance for statistics updates */
         game_instance_t* game = game_manager_find_game(g_game_manager, move->game_id);
-        
+
         /* Check if game is over */
         board_t board;
         if (game_manager_get_board(g_game_manager, move->game_id, &board) == SUCCESS) {
             result.game_over = board_is_game_over(&board);
             result.winner = board_get_winner(&board);
-            
+
             /* If game is over, remove it from active games */
             if (result.game_over && game) {
                 // Update player statistics
                 if (result.winner == (winner_t)PLAYER_A) {
                     matchmaking_update_player_stats(g_matchmaking, game->player_a, true, board.scores[0]);
                     matchmaking_update_player_stats(g_matchmaking, game->player_b, false, board.scores[1]);
+                    // Update Elo ratings
+                    matchmaking_update_player_elo(g_matchmaking, game->player_a, game->player_b);
                 } else if (result.winner == (winner_t)PLAYER_B) {
                     matchmaking_update_player_stats(g_matchmaking, game->player_a, false, board.scores[0]);
                     matchmaking_update_player_stats(g_matchmaking, game->player_b, true, board.scores[1]);
+                    // Update Elo ratings
+                    matchmaking_update_player_elo(g_matchmaking, game->player_b, game->player_a);
                 } else {
-                    // Draw - both get their scores but no win/loss
+                    // Draw - both get their scores but no win/loss, no Elo change
                     matchmaking_update_player_stats(g_matchmaking, game->player_a, false, board.scores[0]);
                     matchmaking_update_player_stats(g_matchmaking, game->player_b, false, board.scores[1]);
                 }
-                
+
                 game_manager_remove_game(g_game_manager, move->game_id);
-                printf("Game ended: %s vs %s - Winner: %s\n", 
-                       game->player_a, game->player_b, 
-                       result.winner == (winner_t)PLAYER_A ? game->player_a : 
-                       result.winner == (winner_t)PLAYER_B ? game->player_b : "Draw");
+                printf("Game ended: %s vs %s - Winner: %s\n",
+                        game->player_a, game->player_b,
+                        result.winner == (winner_t)PLAYER_A ? game->player_a :
+                        result.winner == (winner_t)PLAYER_B ? game->player_b : "Draw");
             }
         } else {
             result.game_over = false;
             result.winner = NO_WINNER;
         }
-        
-    printf("Move: %s played pit %d in %s (captured: %d)\n", 
+
+    printf("Move: %s played pit %d in %s (captured: %d)\n",
                session->pseudo, move->pit_index, move->game_id, seeds_captured);
     } else {
         strncpy(result.message, error_to_string(err), 255);
         result.game_over = false;
         result.winner = NO_WINNER;
     }
-    
+
     result.message[255] = '\0';
-    
+
     /* Send result to the player who made the move */
     session_send_move_result(session, &result);
-    
+
     /* If move was successful, also notify the opponent */
     if (err == SUCCESS) {
         game_instance_t* game = game_manager_find_game(g_game_manager, move->game_id);
         if (game) {
             /* Determine opponent's pseudo */
-            const char* opponent = (strcmp(game->player_a, session->pseudo) == 0) 
-                                   ? game->player_b 
-                                   : game->player_a;
-            
+            const char* opponent = (strcmp(game->player_a, session->pseudo) == 0)
+                                    ? game->player_b
+                                    : game->player_a;
+
             /* Find opponent's session and send notification */
             session_t* opponent_session = session_registry_find(opponent);
             if (opponent_session) {
                 session_send_move_result(opponent_session, &result);
+            }
+
+            /* Check if AI made a move after the human move */
+            board_t current_board;
+            if (game_manager_get_board(g_game_manager, move->game_id, &current_board) == SUCCESS) {
+                if (!board_is_game_over(&current_board)) {
+                    /* Check if it's now the opponent's turn and opponent is AI */
+                    const char* current_player = (current_board.current_player == PLAYER_A) ? game->player_a : game->player_b;
+                    if (game_manager_is_ai_player(current_player) && strcmp(current_player, opponent) == 0) {
+                        /* AI just made a move, send notification about AI's move */
+                        /* We need to create a result for the AI move */
+                        msg_move_result_t ai_result;
+                        ai_result.success = true;
+                        ai_result.seeds_captured = 0; /* We don't track this separately */
+                        ai_result.game_over = board_is_game_over(&current_board);
+                        ai_result.winner = board_get_winner(&current_board);
+                        snprintf(ai_result.message, 255, "AI made its move");
+
+                        /* Send AI move notification to the human player */
+                        session_send_move_result(session, &ai_result);
+                    }
+                }
             }
         }
     }
@@ -476,6 +515,7 @@ void handle_get_player_stats(session_t* session, const msg_get_player_stats_t* s
         response.games_won = player_info.games_won;
         response.games_lost = player_info.games_lost;
         response.total_score = player_info.total_score;
+        response.elo_rating = player_info.elo_rating;
         response.first_seen = player_info.first_seen;
         response.last_seen = player_info.last_seen;
     } else {
@@ -785,4 +825,78 @@ void handle_view_saved_game(session_t* session, const msg_view_saved_game_t* req
     board_msg.winner = game.board.winner;
 
     session_send_message(session, MSG_SAVED_GAME_STATE, &board_msg, sizeof(board_msg));
+}
+
+/* Handle MSG_GET_LEADERBOARD */
+void handle_get_leaderboard(session_t* session, const msg_get_leaderboard_t* req) {
+    msg_leaderboard_t response;
+    memset(&response, 0, sizeof(response));
+
+    /* Get all players */
+    player_info_t all_players[100];
+    int player_count = 0;
+    error_code_t err = matchmaking_get_players(g_matchmaking, all_players, 100, &player_count);
+    if (err != SUCCESS) {
+        session_send_error(session, err, "Failed to get player list");
+        return;
+    }
+
+    /* Sort players by Elo rating (descending) */
+    for (int i = 0; i < player_count - 1; i++) {
+        for (int j = i + 1; j < player_count; j++) {
+            if (all_players[j].elo_rating > all_players[i].elo_rating) {
+                player_info_t temp = all_players[i];
+                all_players[i] = all_players[j];
+                all_players[j] = temp;
+            }
+        }
+    }
+
+    /* Fill response with top players */
+    int max_entries = req->max_entries > 0 ? req->max_entries : 50;
+    response.count = player_count < max_entries ? player_count : max_entries;
+
+    for (int i = 0; i < response.count; i++) {
+        memcpy(response.entries[i].player, all_players[i].pseudo, MAX_PSEUDO_LEN);
+        response.entries[i].player[MAX_PSEUDO_LEN - 1] = '\0';  /* Ensure null termination */
+        response.entries[i].elo_rating = all_players[i].elo_rating;
+        response.entries[i].games_played = all_players[i].games_played;
+        response.entries[i].games_won = all_players[i].games_won;
+        response.entries[i].games_lost = all_players[i].games_lost;
+    }
+
+    /* Calculate actual size */
+    size_t actual_size = sizeof(response.count) + (response.count * sizeof(response.entries[0]));
+    session_send_message(session, MSG_LEADERBOARD, &response, actual_size);
+}
+
+/* Handle MSG_START_AI_GAME */
+void handle_start_ai_game(session_t* session) {
+    /* Check if player is already in a game */
+    if (game_manager_is_player_in_game(g_game_manager, session->pseudo)) {
+        session_send_error(session, ERR_INVALID_PARAM, "You are already in an active game");
+        return;
+    }
+
+    /* Create the game with human player vs AI */
+    char game_id[MAX_GAME_ID_LEN];
+    error_code_t err = game_manager_create_game(g_game_manager, session->pseudo, AI_BOT_PSEUDO, game_id);
+
+    if (err != SUCCESS) {
+        session_send_error(session, err, "Failed to create AI game");
+        return;
+    }
+
+    printf("AI game started: %s vs %s (ID: %s)\n", session->pseudo, AI_BOT_PSEUDO, game_id);
+
+    /* Send MSG_GAME_STARTED to the human player */
+    msg_game_started_t start_msg;
+    memset(&start_msg, 0, sizeof(start_msg));
+    snprintf(start_msg.game_id, MAX_GAME_ID_LEN, "%s", game_id);
+    snprintf(start_msg.player_a, MAX_PSEUDO_LEN, "%s", session->pseudo);
+    snprintf(start_msg.player_b, MAX_PSEUDO_LEN, "%s", AI_BOT_PSEUDO);
+
+    /* Human player is always Player A in AI games */
+    start_msg.your_side = PLAYER_A;
+    session_send_message(session, MSG_GAME_STARTED, &start_msg, sizeof(start_msg));
 }

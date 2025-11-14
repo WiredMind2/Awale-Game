@@ -74,35 +74,42 @@ int main(int argc, char** argv) {
     
     /* Main menu loop */
     client_state_set_running(true);
+    int current_selection = 1;
     while (client_state_is_running()) {
-        print_menu();
-        
-        int choice;
-        if (scanf("%d", &choice) != 1) {
-            clear_input();
-            client_log_error(CLIENT_LOG_INVALID_INPUT);
+        print_menu_highlighted(current_selection);
+
+        int choice = read_arrow_input(&current_selection, 1, 13);
+        if (choice == -1) { /* ESC pressed */
+            client_log_info(CLIENT_LOG_DISCONNECTING);
+            session_send_message(&g_session, MSG_DISCONNECT, NULL, 0);
+            client_state_set_running(false);
+            break;
+        } else if (choice >= 1 && choice <= 12) {
+            /* Valid choice selected */
+            current_selection = choice;
+        } else {
+            /* Continue loop for navigation */
             continue;
         }
-        clear_input();
-        
-        switch (choice) {
+
+        switch (current_selection) {
             case 1: cmd_list_players(); break;
             case 2: cmd_challenge_player(); break;
             case 3: cmd_view_challenges(); break;
-            case 4: cmd_set_bio(); break;
-            case 5: cmd_view_bio(); break;
-            case 6: cmd_view_player_stats(); break;
-            case 7: cmd_play_mode(); break;
-            case 8: cmd_chat(); break;
-            case 9: cmd_spectator_mode(); break;
-            case 10: cmd_friend_management(); break;
-            case 11: cmd_list_saved_games(); break;
-            case 12: cmd_view_saved_game(); break;
-            case 13:
+            case 4: cmd_profile(); break;
+            case 5: cmd_play_mode(); break;
+            case 6: cmd_chat(); break;
+            case 7: cmd_spectator_mode(); break;
+            case 8: cmd_friend_management(); break;
+            case 9: cmd_list_saved_games(); break;
+            case 10: cmd_view_saved_game(); break;
+            case 11:
                 client_log_info(CLIENT_LOG_DISCONNECTING);
                 session_send_message(&g_session, MSG_DISCONNECT, NULL, 0);
                 client_state_set_running(false);
                 break;
+            case 12: cmd_tutorial(); break;
+            case 13: cmd_start_ai_game(); break;
             default:
                 client_log_warning(CLIENT_LOG_INVALID_CHOICE);
                 break;

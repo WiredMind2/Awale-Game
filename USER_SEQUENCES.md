@@ -9,6 +9,11 @@ This document outlines the step-by-step sequences for performing the most common
 4. [Play Mode](#play-mode)
 5. [Spectator Mode](#spectator-mode)
 6. [Chat Functionality](#chat-functionality)
+7. [Profile Management Submenu](#profile-management-submenu)
+8. [Friend Management](#friend-management)
+9. [Interactive Tutorial](#interactive-tutorial)
+10. [List Saved Games for Review](#list-saved-games-for-review)
+11. [View Saved Game](#view-saved-game)
 
 ## Server Startup
 
@@ -60,57 +65,73 @@ This document outlines the step-by-step sequences for performing the most common
 2. System displays any incoming challenges from other players
 3. Note: Challenges are mutual - respond by challenging them back (option 2)
 
-### Set Your Bio
+### Profile Management
 1. From main menu, enter `4`
-2. Enter your bio text when prompted (up to 255 characters)
-3. Bio is saved and can be viewed by other players
-
-### View Player Bio
-1. From main menu, enter `5`
-2. Enter the username of the player whose bio you want to view
-3. System displays the player's bio if it exists
-
-### View Player Statistics
-1. From main menu, enter `6`
-2. Enter the username of the player whose stats you want to view
-3. System displays games played, wins, losses, and win rate
+2. Choose from submenu:
+   - 1: Set Your Bio
+   - 2: View Player Bio
+   - 3: View Player Statistics
+3. Follow prompts for selected option
 
 ### Enter Play Mode
-1. From main menu, enter `8`
+1. From main menu, enter `5`
 2. If you have active games, select which one to play (or it auto-selects if only one)
 3. Enter play mode interface for making moves
 
 ### Start Chat
-1. From main menu, enter `9`
+1. From main menu, enter `6`
 2. Choose recipient: enter "all" for global chat or a username for private chat
 3. Type messages to send (one per line)
 4. Type "exit" or "quit" to return to main menu
 
 ### Enter Spectator Mode
-1. From main menu, enter `10`
-2. System displays list of available games to spectate
+1. From main menu, enter `7`
+2. System displays list of available games to spectate (requires friend relationship)
 3. Select a game by number
 4. Enter spectator interface for watching the game
 
+### Friend Management
+1. From main menu, enter `8`
+2. Choose from submenu:
+   - 1: Add Friend
+   - 2: Remove Friend
+   - 3: List Friends
+3. Follow prompts for selected option
+
+### List Saved Games for Review
+1. From main menu, enter `9`
+2. System displays list of your saved games
+3. Select a game to view details or review
+
+### View Saved Game
+1. From main menu, enter `10`
+2. Enter game ID or select from list
+3. View the saved game replay or details
+
 ### Quit Application
-1. From main menu, enter `7`
+1. From main menu, enter `11`
 2. Client disconnects from server
 3. Application terminates
+
+### Interactive Tutorial
+1. From main menu, enter `12`
+2. Follow the step-by-step tutorial on how to play Awale
+3. Learn rules, moves, and strategies
 
 ## Play Mode
 
 ### Single Active Game
-1. Enter play mode (option 8 from main menu)
+1. Enter play mode (option 5 from main menu)
 2. System automatically selects your active game
 3. Current board state is displayed
 4. If it's your turn:
-   - Enter pit number (0-5 for Player A bottom row, 6-11 for Player B top row)
-   - Move is validated and sent to server
+    - Enter pit number (0-5 for Player A bottom row, 6-11 for Player B top row)
+    - Move is validated and sent to server
 5. If it's opponent's turn, wait for their move
 6. Board updates automatically after each move
 
 ### Multiple Active Games
-1. Enter play mode (option 8 from main menu)
+1. Enter play mode (option 5 from main menu)
 2. System displays list of your active games
 3. Enter the number of the game you want to play
 4. Continue with single game sequence above
@@ -134,8 +155,8 @@ This document outlines the step-by-step sequences for performing the most common
 ## Spectator Mode
 
 ### Selecting a Game to Spectate
-1. Enter spectator mode (option 10 from main menu)
-2. System requests and displays list of active games
+1. Enter spectator mode (option 7 from main menu)
+2. System requests and displays list of active games (only games involving friends)
 3. Each game shows players, game ID, spectator count, and status
 4. Enter the number of the game you want to watch
 5. System sends spectate request to server
@@ -165,14 +186,14 @@ This document outlines the step-by-step sequences for performing the most common
 ## Chat Functionality
 
 ### Starting Global Chat
-1. Enter chat mode (option 9 from main menu)
+1. Enter chat mode (option 6 from main menu)
 2. Type "all" when prompted for recipient
 3. System confirms global chat mode
 4. Type your message and press Enter to send
 5. Messages are broadcast to all connected players
 
 ### Starting Private Chat
-1. Enter chat mode (option 9 from main menu)
+1. Enter chat mode (option 6 from main menu)
 2. Type the recipient's username when prompted
 3. System confirms private chat mode
 4. Type your message and press Enter to send
@@ -188,6 +209,84 @@ This document outlines the step-by-step sequences for performing the most common
 1. Type "exit" or "quit" and press Enter
 2. Return to main menu
 3. Chat mode terminates
+
+## Profile Management Submenu
+
+### Setting Your Bio
+1. From main menu, enter `4` for Profile Management
+2. Choose `1: Set Your Bio` from submenu
+3. Enter your bio text when prompted (up to 255 characters)
+4. Bio is saved and can be viewed by other players
+
+### Viewing Player Bio
+1. From main menu, enter `4` for Profile Management
+2. Choose `2: View Player Bio` from submenu
+3. Enter the username of the player whose bio you want to view
+4. System displays the player's bio if it exists
+
+### Viewing Player Statistics
+1. From main menu, enter `4` for Profile Management
+2. Choose `3: View Player Statistics` from submenu
+3. Enter the username of the player whose stats you want to view
+4. System displays games played, wins, losses, and win rate
+
+## Friend Management
+
+### Adding a Friend
+1. From main menu, enter `8` for Friend Management
+2. Choose `1: Add Friend` from submenu
+3. Enter the username of the player to add as friend
+4. Friend request is sent if the player exists
+
+### Removing a Friend
+1. From main menu, enter `8` for Friend Management
+2. Choose `2: Remove Friend` from submenu
+3. Enter the username of the friend to remove
+4. Friend is removed from your list
+
+### Listing Friends
+1. From main menu, enter `8` for Friend Management
+2. Choose `3: List Friends` from submenu
+3. System displays your current friends list
+
+## Interactive Tutorial
+
+### Starting the Tutorial
+1. From main menu, enter `12` for Interactive Tutorial
+2. System begins the step-by-step tutorial
+3. Follow on-screen instructions to learn Awale rules
+
+### Navigating the Tutorial
+1. Tutorial presents rules, board setup, and basic moves
+2. Interactive examples allow you to try moves
+3. Progress through sections at your own pace
+4. Exit tutorial at any time to return to main menu
+
+## List Saved Games for Review
+
+### Accessing Saved Games List
+1. From main menu, enter `9` for List Saved Games for Review
+2. System displays list of your saved games
+3. Each entry shows game ID, opponents, date, and outcome
+
+### Selecting a Game for Review
+1. Enter the number of the game you want to review
+2. System shows detailed game information
+3. Option to proceed to full replay or return to list
+
+## View Saved Game
+
+### Viewing a Saved Game Replay
+1. From main menu, enter `10` for View Saved Game
+2. Enter game ID or select from recent games
+3. System loads and displays the game replay
+4. Navigate through moves using controls
+
+### Game Replay Controls
+1. Use arrow keys or commands to step through moves
+2. View board state at any point in the game
+3. See move history and final scores
+4. Exit replay to return to main menu
 
 ## Background Notification Processing
 
@@ -416,6 +515,198 @@ Instead of generic "Move is illegal", provide specific guidance:
 - Screen reader support
 - Keyboard-only navigation
 - Customizable font sizes and colors
+### Optimized Profile Management
+
+#### Enhanced Profile Features
+1. Rich profile pages with:
+   - Customizable avatars or profile pictures
+   - Extended bio with formatting (bold, italic, links)
+   - Achievement badges based on game performance
+   - Favorite strategies or playing style description
+
+#### Quick Profile Access
+1. Press 'p' from main menu for instant profile view/edit
+2. Inline editing: click on bio to edit directly
+3. Auto-save drafts to prevent data loss
+4. Profile preview before publishing changes
+
+#### Integrated Statistics Dashboard
+1. Comprehensive stats view with:
+   - Win/loss ratio with trend graphs
+   - Average game duration
+   - Most played opponents
+   - Peak performance periods
+2. Export stats to share with friends
+
+#### Privacy and Social Features
+1. Profile visibility settings:
+   - Public: visible to all players
+   - Friends only: restricted to friend list
+   - Private: stats only, no bio
+2. Friend recommendations based on similar play styles
+3. Profile comments and ratings from friends
+
+#### Error Handling and Validation
+1. Real-time bio length counter (e.g., "150/255 characters")
+2. Content moderation warnings for inappropriate text
+3. Graceful handling of missing profiles: "Player has not set up their profile yet"
+4. Backup and restore profile data
+
+### Optimized Friend Management
+
+#### Streamlined Friend Requests
+1. Quick-add from player list: hover over username and click "Add Friend"
+2. Friend request notifications with one-click accept/decline
+3. Mutual friend suggestions based on common connections
+4. Friend request history and pending requests dashboard
+
+#### Enhanced Friend List Features
+1. Friend status indicators:
+   - Online/In-Game/Away/Offline
+   - Current activity (playing vs Alice, spectating game #123)
+2. Sort and filter options:
+   - Online first
+   - Recently active
+   - Alphabetical
+   - By win rate
+3. Bulk actions: message all online friends, invite to group game
+
+#### Social Integration
+1. Friend-only games and tournaments
+2. Automatic spectator access to friends' games
+3. Shared game history and statistics with friends
+4. Friend activity feed: see when friends start games or achieve milestones
+
+#### Privacy and Communication
+1. Friend groups or categories (Close Friends, Casual Players)
+2. Selective sharing: choose which stats to share with friends
+3. Friend chat shortcuts: /friend message to send to all friends
+4. Block/unblock players with automatic friend removal
+
+#### Error Handling
+1. Clear feedback for failed friend requests: "Player not found" vs "Player has friend requests disabled"
+2. Duplicate request prevention
+3. Automatic cleanup of inactive friends (optional)
+4. Recovery options for accidentally removed friends
+
+### Optimized Interactive Tutorial
+
+#### Adaptive Learning Path
+1. Skill assessment quiz at start to customize tutorial difficulty
+2. Dynamic content based on user progress and mistakes
+3. Skip sections for experienced players
+4. Remedial lessons for common mistakes
+
+#### Interactive Board Experience
+1. Click-to-play board with visual feedback
+2. Move animations showing seed distribution
+3. Undo/redo for experimentation
+4. Hint system with progressive reveal (show legal moves, then suggest best move)
+
+#### Multimedia Learning Aids
+1. Video demonstrations of complex strategies
+2. Audio explanations with voice-over
+3. Interactive quizzes after each section
+4. Practice mode with AI opponent at various difficulty levels
+
+#### Progress Tracking and Gamification
+1. Tutorial completion badges and achievements
+2. Progress bar with estimated time remaining
+3. Leaderboard for fastest tutorial completion
+4. Unlock advanced content after basic tutorial
+
+#### Integration with Main Game
+1. Seamless transition: practice moves carry over to real games
+2. Tutorial accessible during games for rule reminders
+3. Link to community resources and strategy guides
+4. Personalized tips based on playing style observed in tutorial
+
+#### Error Handling and Support
+1. Gentle correction for wrong moves with explanations
+2. Multiple attempt allowance before showing solution
+3. Help button linking to relevant documentation
+4. Save progress across sessions
+
+### Optimized List Saved Games
+
+#### Advanced Filtering and Search
+1. Search by opponent name, game ID, or date range
+2. Filter options:
+   - Game outcome (wins/losses/draws)
+   - Opponent skill level
+   - Game duration
+   - Specific strategies used (if tagged)
+3. Saved filter presets for quick access
+
+#### Enhanced Game List Display
+1. Thumbnail previews of final board positions
+2. Key statistics at a glance: moves played, duration, Elo change
+3. Color coding: wins green, losses red, draws yellow
+4. Sort by multiple criteria: date, opponent, game length, Elo gained/lost
+
+#### Bulk Operations
+1. Select multiple games for batch actions:
+   - Delete old games
+   - Export game data
+   - Share with friends
+   - Analyze for patterns
+2. Quick actions per game: view, replay, delete, favorite
+
+#### Integration with Analytics
+1. Game history dashboard with trends over time
+2. Performance against specific opponents
+3. Improvement tracking: Elo progression, win rate changes
+4. Export data for external analysis tools
+
+#### Usability Improvements
+1. Infinite scroll or pagination for large game lists
+2. Keyboard navigation and shortcuts
+3. Mobile-responsive design
+4. One-click access to replay from list
+
+#### Error Handling
+1. Graceful handling of corrupted game files
+2. Clear messages for missing games: "Game data not available"
+3. Backup and restore functionality for game history
+4. Validation of game integrity before display
+
+### Optimized View Saved Game
+
+#### Advanced Replay Controls
+1. Playback speed control: 0.5x to 4x speed
+2. Frame-by-frame stepping with arrow keys
+3. Jump to specific move numbers or timestamps
+4. Pause and resume at any point
+
+#### Analysis Mode
+1. Move evaluation with AI suggestions for better alternatives
+2. Position analysis showing winning probabilities
+3. Highlight critical moves and turning points
+4. Comment system for personal notes on moves
+
+#### Interactive Features
+1. Branching replays: try alternative moves from any position
+2. Side-by-side comparison with similar games
+3. Export replay as video or GIF
+4. Share replay link with friends for review
+
+#### Enhanced Visualization
+1. Animated seed movements with trails
+2. Heat maps showing most contested pits
+3. Timeline view of board state evolution
+4. Player thinking time indicators
+
+#### Integration and Sharing
+1. Link replays to strategy discussions
+2. Embed in tutorials or lessons
+3. Compare with live games in spectator mode
+4. Save favorite positions for study
+
+#### Error Handling and Performance
+1. Smooth playback even for long games
+2. Automatic quality adjustment for performance
+3. Error recovery for corrupted replay data
+4. Offline viewing capability
+
 
 These optimizations would transform the user experience from functional but clunky to modern and intuitive, while maintaining the core Awale gameplay mechanics.
-  3. Use option 1 to list players first
