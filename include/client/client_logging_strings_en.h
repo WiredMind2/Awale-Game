@@ -211,7 +211,7 @@
 
 #define CLIENT_UI_PLAYER_LIST_HEADER "\nConnected players (%d):\n"
 #define CLIENT_UI_PLAYER_LIST_SEPARATOR "─────────────────────────────\n"
-#define CLIENT_UI_PLAYER_LIST_ITEM "  %d. %s (%s)\n"
+#define CLIENT_UI_PLAYER_LIST_ITEM "  %d. %s\n"
 #define CLIENT_UI_PLAYER_LIST_FOOTER "─────────────────────────────\n"
 
 #define CLIENT_UI_CHALLENGE_SENT "Challenge sent to %s!\n"

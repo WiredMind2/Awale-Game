@@ -137,7 +137,7 @@ void ui_display_player_list(const msg_player_list_t* list) {
     printf(CLIENT_UI_PLAYER_LIST_HEADER, list->count);
     printf(CLIENT_UI_PLAYER_LIST_SEPARATOR);
     for (int i = 0; i < list->count; i++) {
-        printf(CLIENT_UI_PLAYER_LIST_ITEM, i + 1, list->players[i].pseudo, list->players[i].ip);
+        printf(CLIENT_UI_PLAYER_LIST_ITEM, i + 1, list->players[i].pseudo);
     }
     printf(CLIENT_UI_PLAYER_LIST_FOOTER);
 }
