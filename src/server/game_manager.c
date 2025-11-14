@@ -142,8 +142,10 @@ game_instance_t* game_manager_find_game_by_players(game_manager_t* manager,
 }
 
 error_code_t game_manager_play_move(game_manager_t* manager, const char* game_id,
-                                    const char* player, int pit_index, int* seeds_captured) {
-    if (!manager || !game_id || !player || !seeds_captured) return ERR_INVALID_PARAM;
+                                     const char* player, int pit_index, int* seeds_captured, int* ai_seeds_captured_out) {
+    if (!manager || !game_id || !player || !seeds_captured || !ai_seeds_captured_out) return ERR_INVALID_PARAM;
+
+    *ai_seeds_captured_out = -1;  /* Initialize to indicate no AI move */
 
     game_instance_t* game = game_manager_find_game(manager, game_id);
     if (!game) return ERR_GAME_NOT_FOUND;
@@ -179,10 +181,11 @@ error_code_t game_manager_play_move(game_manager_t* manager, const char* game_id
 
             if (game_manager_is_ai_player(next_player)) {
                 /* Make AI move */
-                error_code_t ai_result = game_manager_make_ai_move(manager, game_id);
+                int ai_seeds_captured;
+                error_code_t ai_result = game_manager_make_ai_move(manager, game_id, &ai_seeds_captured);
                 if (ai_result == SUCCESS) {
-                    /* AI move was made, update seeds_captured if needed */
-                    /* Note: We don't update seeds_captured here as it's for the human move */
+                    /* AI move was made, seeds captured is in ai_seeds_captured */
+                    *ai_seeds_captured_out = ai_seeds_captured;
                 }
             }
         }
@@ -337,8 +340,8 @@ bool game_manager_is_ai_player(const char* player) {
 }
 
 /* Make AI move if it's AI's turn */
-error_code_t game_manager_make_ai_move(game_manager_t* manager, const char* game_id) {
-    if (!manager || !game_id) return ERR_INVALID_PARAM;
+error_code_t game_manager_make_ai_move(game_manager_t* manager, const char* game_id, int* seeds_captured_out) {
+    if (!manager || !game_id || !seeds_captured_out) return ERR_INVALID_PARAM;
 
     game_instance_t* game = game_manager_find_game(manager, game_id);
     if (!game) return ERR_GAME_NOT_FOUND;
@@ -380,6 +383,8 @@ error_code_t game_manager_make_ai_move(game_manager_t* manager, const char* game
 
     printf("AI move: %s played pit %d in %s (captured: %d)\n",
            current_player_pseudo, ai_move.pit_index, game_id, seeds_captured);
+
+    *seeds_captured_out = seeds_captured;
 
     pthread_mutex_unlock(&game->lock);
     return SUCCESS;

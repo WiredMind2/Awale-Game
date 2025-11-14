@@ -56,12 +56,9 @@ error_code_t session_close(session_t* session) {
 
 error_code_t session_send_message(session_t* session, message_type_t type, const void* payload, size_t payload_size) {
     if (!session) return ERR_INVALID_PARAM;
-
-    printf("DEBUG: session_send_message called for type %d, payload_size=%zu\n", type, payload_size);
-
+    
     /* Check if connection is still alive before attempting send */
     if (!connection_is_connected(&session->conn)) {
-        printf("DEBUG: session_send_message connection not alive\n");
         session->authenticated = false;
         return ERR_NETWORK_ERROR;
     }
@@ -71,15 +68,11 @@ error_code_t session_send_message(session_t* session, message_type_t type, const
 
     error_code_t err = serialize_message(type, payload, payload_size, buffer, &total_size);
     if (err != SUCCESS) {
-        printf("DEBUG: session_send_message serialize failed %d\n", err);
         return err;
     }
-    printf("DEBUG: session_send_message serialized, total_size=%zu\n", total_size);
-
+    
     /* Use send with timeout to prevent freezing */
-    printf("DEBUG: session_send_message calling connection_send_timeout\n");
     err = connection_send_timeout(&session->conn, buffer, total_size, 5000);
-    printf("DEBUG: session_send_message connection_send_timeout returned %d\n", err);
     if (err != SUCCESS) {
         /* Mark session as disconnected on error */
         if (err == ERR_NETWORK_ERROR) {
@@ -89,7 +82,6 @@ error_code_t session_send_message(session_t* session, message_type_t type, const
     }
 
     session_touch_activity(session);
-    printf("DEBUG: session_send_message success\n");
     return SUCCESS;
 }
 

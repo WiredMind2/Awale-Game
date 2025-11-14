@@ -541,32 +541,32 @@ __attribute__((unused)) void cmd_friend_management(void)
                 break;
         }
     }
-    
-    /* Start a game against AI */
-    __attribute__((unused)) void cmd_start_ai_game(void) {
-        session_t* session = client_state_get_session();
-    
-        client_log_info("Starting game against AI...");
-    
-        error_code_t err = session_send_message(session, MSG_START_AI_GAME, NULL, 0);
-        if (err != SUCCESS) {
-            client_log_error("Error sending AI game request: %s", error_to_string(err));
-            printf("\nPress Enter to return to menu...");
-            fflush(stdout);
-            char dummy[2];
-            read_line(dummy, 2);
-            return;
-        }
-    
-        /* Wait for game started notification - it will be handled by the notification listener */
-        /* The game will start automatically when MSG_GAME_STARTED is received */
-    
-        printf("AI game request sent. Waiting for game to start...\n");
+}
+
+/* Start a game against AI */
+__attribute__((unused)) void cmd_start_ai_game(void) {
+    session_t* session = client_state_get_session();
+
+    client_log_info("Starting game against AI...");
+
+    error_code_t err = session_send_message(session, MSG_START_AI_GAME, NULL, 0);
+    if (err != SUCCESS) {
+        client_log_error("Error sending AI game request: %s", error_to_string(err));
         printf("\nPress Enter to return to menu...");
         fflush(stdout);
         char dummy[2];
         read_line(dummy, 2);
+        return;
     }
+
+    /* Wait for game started notification - it will be handled by the notification listener */
+    /* The game will start automatically when MSG_GAME_STARTED is received */
+
+    printf("AI game request sent. Waiting for game to start...\n");
+    printf("\nPress Enter to return to menu...");
+    fflush(stdout);
+    char dummy[2];
+    read_line(dummy, 2);
 }
 
 /* Tutorial mode - Interactive step-by-step guide */

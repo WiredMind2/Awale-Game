@@ -18,10 +18,6 @@ static int get_player_index(matchmaking_t* mm, const char* pseudo) {
     return -1;
 }
 
-/* Public wrapper matching header API */
-int matchmaking_get_player_index(matchmaking_t* mm, const char* pseudo) {
-    return get_player_index(mm, pseudo);
-}
 
 error_code_t matchmaking_init(matchmaking_t* mm) {
     if (!mm) return ERR_INVALID_PARAM;
@@ -164,11 +160,9 @@ error_code_t matchmaking_create_challenge(matchmaking_t* mm, const char* challen
 
 error_code_t matchmaking_get_players(matchmaking_t* mm, player_info_t* players, int max_players, int* count) {
     if (!mm || !players || !count) return ERR_INVALID_PARAM;
-
-    printf("DEBUG: matchmaking_get_players locking mutex\n");
+    
     pthread_mutex_lock(&mm->lock);
-    printf("DEBUG: matchmaking_get_players locked mutex, player_count=%d\n", mm->player_count);
-
+    
     *count = 0;
     for (int i = 0; i < mm->player_count && *count < max_players; i++) {
         if (mm->players[i].connected) {
@@ -176,10 +170,8 @@ error_code_t matchmaking_get_players(matchmaking_t* mm, player_info_t* players, 
             (*count)++;
         }
     }
-    printf("DEBUG: matchmaking_get_players found %d connected players\n", *count);
-
+    
     pthread_mutex_unlock(&mm->lock);
-    printf("DEBUG: matchmaking_get_players unlocked mutex\n");
     return SUCCESS;
 }
 

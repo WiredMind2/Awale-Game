@@ -24,7 +24,6 @@ void handlers_init(game_manager_t* game_mgr, matchmaking_t* matchmaking) {
 
 /* Handle MSG_LIST_PLAYERS */
 void handle_list_players(session_t* session) {
-    printf("DEBUG: handle_list_players started for %s\n", session->pseudo);
     msg_player_list_t list;
     int count;
 
@@ -51,12 +50,9 @@ void handle_list_players(session_t* session) {
 
         printf("Sending player list with %d players, size %zu\n", count, actual_size);
         session_send_message(session, MSG_PLAYER_LIST, &list, actual_size);
-    }
     } else {
-        printf("DEBUG: matchmaking_get_players failed, sending error\n");
         session_send_error(session, err, "Failed to get player list");
     }
-    printf("DEBUG: handle_list_players completed for %s\n", session->pseudo);
 }
 
 /* Handle MSG_CHALLENGE - New notification-based approach */
@@ -190,9 +186,10 @@ void handle_get_challenges(session_t* session) {
 /* Handle MSG_PLAY_MOVE */
 void handle_play_move(session_t* session, const msg_play_move_t* move) {
     int seeds_captured = 0;
+    int ai_seeds_captured = -1;
 
     error_code_t err = game_manager_play_move(g_game_manager, move->game_id,
-                                               session->pseudo, move->pit_index, &seeds_captured);
+                                               session->pseudo, move->pit_index, &seeds_captured, &ai_seeds_captured);
 
     msg_move_result_t result;
     result.success = (err == SUCCESS);
@@ -280,25 +277,24 @@ void handle_play_move(session_t* session, const msg_play_move_t* move) {
             pthread_mutex_unlock(&game->lock);
 
             /* Check if AI made a move after the human move */
-            board_t current_board;
-            if (game_manager_get_board(g_game_manager, move->game_id, &current_board) == SUCCESS) {
-                if (!board_is_game_over(&current_board)) {
-                    /* Check if it's now the opponent's turn and opponent is AI */
-                    const char* current_player = (current_board.current_player == PLAYER_A) ? game->player_a : game->player_b;
-                    if (game_manager_is_ai_player(current_player) && strcmp(current_player, opponent) == 0) {
-                        /* AI just made a move, send notification about AI's move */
-                        /* We need to create a result for the AI move */
-                        msg_move_result_t ai_result;
-                        ai_result.success = true;
-                        ai_result.seeds_captured = 0; /* We don't track this separately */
-                        ai_result.game_over = board_is_game_over(&current_board);
-                        ai_result.winner = board_get_winner(&current_board);
-                        snprintf(ai_result.message, 255, "AI made its move");
-
-                        /* Send AI move notification to the human player */
-                        session_send_move_result(session, &ai_result);
-                    }
+            if (ai_seeds_captured >= 0) {
+                /* AI just made a move, send notification about AI's move */
+                msg_move_result_t ai_result;
+                ai_result.success = true;
+                ai_result.seeds_captured = ai_seeds_captured;
+                /* Get current board state to check game over */
+                board_t current_board;
+                if (game_manager_get_board(g_game_manager, move->game_id, &current_board) == SUCCESS) {
+                    ai_result.game_over = board_is_game_over(&current_board);
+                    ai_result.winner = board_get_winner(&current_board);
+                } else {
+                    ai_result.game_over = false;
+                    ai_result.winner = NO_WINNER;
                 }
+                snprintf(ai_result.message, 255, "AI made its move");
+
+                /* Send AI move notification to the human player */
+                session_send_move_result(session, &ai_result);
             }
         }
     }

@@ -84,7 +84,7 @@ int main(int argc, char** argv) {
             session_send_message(&g_session, MSG_DISCONNECT, NULL, 0);
             client_state_set_running(false);
             break;
-        } else if (choice >= 1 && choice <= 12) {
+        } else if (choice >= 1 && choice <= 13) {
             /* Valid choice selected */
             current_selection = choice;
         } else {
@@ -114,6 +114,11 @@ int main(int argc, char** argv) {
                 client_log_warning(CLIENT_LOG_INVALID_CHOICE);
                 break;
         }
+
+        /* Pause after command execution to keep output visible */
+        printf("Press Enter to return to menu...\n");
+        char buffer[256];
+        read_line(buffer, sizeof(buffer));
     }
     
     /* Cleanup */
