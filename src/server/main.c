@@ -188,25 +188,24 @@ int main(int argc, char** argv) {
 
         connect_msg.pseudo[MAX_PSEUDO_LEN - 1] = '\0';
 
-        msg_player_list_t list;
+        player_info_t players[100];
         int count;
-        error_code_t error_matchmaking = matchmaking_get_players(&g_matchmaking, list.players, 100, &count);
+        error_code_t error_matchmaking = matchmaking_get_players(&g_matchmaking, players, 100, &count);
+        bool pseudo_already_use = false;
         if (error_matchmaking == SUCCESS)
         {
-            list.count = count;
-        }
-        bool pseudo_already_use= false;
-        for (int i = 0; i < count; i++)
-        {
-            if (strcmp(connect_msg.pseudo, list.players[i].pseudo) == 0)
-            {      
-                // Send a proper connect ACK with success=false so the client will detect the rejection
-                session_t temp_fail_session;
-                memset(&temp_fail_session, 0, sizeof(temp_fail_session));
-                temp_fail_session.conn = client_conn;
-                session_send_connect_ack(&temp_fail_session, false, "Pseudo deja utilise");
-                pseudo_already_use=true;
-                break;
+            for (int i = 0; i < count; i++)
+            {
+                if (strcmp(connect_msg.pseudo, players[i].pseudo) == 0)
+                {
+                    // Send a proper connect ACK with success=false so the client will detect the rejection
+                    session_t temp_fail_session;
+                    memset(&temp_fail_session, 0, sizeof(temp_fail_session));
+                    temp_fail_session.conn = client_conn;
+                    session_send_connect_ack(&temp_fail_session, false, "Pseudo deja utilise");
+                    pseudo_already_use = true;
+                    break;
+                }
             }
         }
         if (pseudo_already_use)

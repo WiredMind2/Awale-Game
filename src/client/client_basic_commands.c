@@ -19,29 +19,37 @@
 /* List connected players */
 void cmd_list_players(void) {
     session_t* session = client_state_get_session();
-    
+
     client_log_info(CLIENT_LOG_LISTING_PLAYERS);
-    
+
     error_code_t err = session_send_message(session, MSG_LIST_PLAYERS, NULL, 0);
     if (err != SUCCESS) {
         client_log_error(CLIENT_LOG_ERROR_SENDING_REQUEST, error_to_string(err));
         return;
     }
     message_type_t type;
-    msg_player_list_t list;
+    msg_player_list_t* list = calloc(1, sizeof(msg_player_list_t));
+    if (!list) {
+        client_log_error("Memory allocation failed");
+        return;
+    }
     size_t size;
 
-    err = session_recv_message_timeout(session, &type, &list, sizeof(list), &size, 5000);
+    err = session_recv_message_timeout(session, &type, list, sizeof(*list), &size, 10000);
     if (err == ERR_TIMEOUT) {
         client_log_error(CLIENT_LOG_TIMEOUT_SERVER);
+        free(list);
         return;
     }
     if (err != SUCCESS || type != MSG_PLAYER_LIST) {
         client_log_error(CLIENT_LOG_ERROR_RECEIVING_RESPONSE);
+        free(list);
         return;
     }
-    
-    ui_display_player_list(&list);
+
+    printf("Received player list with %d players\n", list->count);
+    ui_display_player_list(list);
+    free(list);
 }
 
 /* Challenge a player */

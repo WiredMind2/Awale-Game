@@ -25,14 +25,29 @@ void handlers_init(game_manager_t* game_mgr, matchmaking_t* matchmaking) {
 void handle_list_players(session_t* session) {
     msg_player_list_t list;
     int count;
-    
-    error_code_t err = matchmaking_get_players(g_matchmaking, list.players, 100, &count);
+
+    /* Get full player info */
+    player_info_t full_players[100];
+    error_code_t err = matchmaking_get_players(g_matchmaking, full_players, 100, &count);
     if (err == SUCCESS) {
         list.count = count;
-        
+
+        /* Copy only pseudo and ip to the list */
+        for (int i = 0; i < count; i++) {
+            memcpy(list.players[i].pseudo, full_players[i].pseudo, MAX_PSEUDO_LEN);
+            memcpy(list.players[i].ip, full_players[i].ip, MAX_IP_LEN);
+        }
+
         /* Calculate actual size: count field + only the actual number of players */
-        size_t actual_size = sizeof(list.count) + (count * sizeof(player_info_t));
-        
+        size_t actual_size = sizeof(list.count) + (count * sizeof(player_list_item_t));
+
+        /* Validate payload size */
+        if (actual_size > MAX_PAYLOAD_SIZE) {
+            session_send_error(session, ERR_INVALID_PARAM, "Too many players to list");
+            return;
+        }
+
+        printf("Sending player list with %d players, size %zu\n", count, actual_size);
         session_send_message(session, MSG_PLAYER_LIST, &list, actual_size);
     } else {
         session_send_error(session, err, "Failed to get player list");
