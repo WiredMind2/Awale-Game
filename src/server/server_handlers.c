@@ -51,7 +51,6 @@ void handle_list_players(session_t* session) {
 
         printf("Sending player list with %d players, size %zu\n", count, actual_size);
         session_send_message(session, MSG_PLAYER_LIST, &list, actual_size);
-    }
     } else {
         printf("DEBUG: matchmaking_get_players failed, sending error\n");
         session_send_error(session, err, "Failed to get player list");

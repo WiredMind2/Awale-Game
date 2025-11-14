@@ -26,7 +26,8 @@ void cmd_list_players(void) {
 
     error_code_t err = session_send_message(session, MSG_LIST_PLAYERS, NULL, 0);
     if (err != SUCCESS) {
-        system("clear");
+        int ret = system("clear");
+        (void)ret; // Suppress unused variable warning
         printf("Error sending request: %s\n", error_to_string(err));
         printf("\nPress Enter to return to menu...");
         fflush(stdout);
