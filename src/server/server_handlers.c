@@ -333,12 +333,15 @@ void handle_spectate_game(session_t* session, const char* game_id) {
         return;
     }
 
-    /* Check if spectator is friend with at least one player */
-    bool is_friend = matchmaking_are_friends(g_matchmaking, session->pseudo, game->player_a) ||
-                     matchmaking_are_friends(g_matchmaking, session->pseudo, game->player_b);
+    /* Check if spectator is friend with at least one player, or is a player in the game */
+    bool is_friend_a = matchmaking_are_friends(g_matchmaking, session->pseudo, game->player_a);
+    bool is_friend_b = matchmaking_are_friends(g_matchmaking, session->pseudo, game->player_b);
+    bool is_player_a = strcmp(session->pseudo, game->player_a) == 0;
+    bool is_player_b = strcmp(session->pseudo, game->player_b) == 0;
+    bool is_authorized = is_friend_a || is_friend_b || is_player_a || is_player_b;
 
-    if (!is_friend) {
-        session_send_error(session, ERR_INVALID_PARAM, "You must be friends with at least one player to spectate this private game");
+    if (!is_authorized) {
+        session_send_error(session, ERR_INVALID_PARAM, "You must be friends with at least one player or be a player in the game to spectate");
         return;
     }
 

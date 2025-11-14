@@ -105,13 +105,13 @@ void cmd_spectator_mode(void) {
     /* Wait for acknowledgment */
     msg_spectate_ack_t ack;
     err = session_recv_message_timeout(client_state_get_session(), &type, (char*)&ack,
-                                       sizeof(ack), &size, 5000, NULL, 0);
-    
+                                        sizeof(ack), &size, 5000, NULL, 0);
+
     if (err == ERR_TIMEOUT) {
         client_log_error(CLIENT_LOG_SPECTATOR_TIMEOUT_ACK);
         return;
     }
-    
+
     if (err != SUCCESS || type != MSG_SPECTATE_ACK) {
         client_log_error(CLIENT_LOG_SPECTATOR_FAILED_RECEIVE_ACK);
         return;
@@ -153,7 +153,7 @@ void cmd_spectator_mode(void) {
     /* Display initial board */
     char buffer[MAX_MESSAGE_SIZE];
     err = session_recv_message_timeout(client_state_get_session(), &type, buffer,
-                                        MAX_MESSAGE_SIZE, &size, 5000);
+                                         MAX_MESSAGE_SIZE, &size, 5000, NULL, 0);
 
     if (err == ERR_TIMEOUT) {
         client_log_error(CLIENT_LOG_TIMEOUT_GAME_LIST);  /* Reuse timeout message */
@@ -209,7 +209,7 @@ void cmd_spectator_mode(void) {
 
                 /* Continue waiting for board state or more notifications */
                 err = session_recv_message_timeout(client_state_get_session(), &type, buffer,
-                                                    MAX_MESSAGE_SIZE, &size, 5000);
+                                                     MAX_MESSAGE_SIZE, &size, 5000, NULL, 0);
                 if (err != SUCCESS) {
                     client_log_error("Failed to receive next message after processing notification");
                     return;
@@ -293,7 +293,7 @@ void cmd_spectator_mode(void) {
                     board_request_pending = true;
 
                     err = session_recv_message_timeout(client_state_get_session(), &type, buffer,
-                                                        MAX_MESSAGE_SIZE, &size, 5000);
+                                                         MAX_MESSAGE_SIZE, &size, 5000, NULL, 0);
                     board_request_pending = false;
 
                     if (err == ERR_TIMEOUT) {
@@ -357,7 +357,7 @@ void cmd_spectator_mode(void) {
             board_request_pending = true;
 
             err = session_recv_message_timeout(client_state_get_session(), &type, buffer,
-                                                MAX_MESSAGE_SIZE, &size, 5000);
+                                                 MAX_MESSAGE_SIZE, &size, 5000, NULL, 0);
             board_request_pending = false;
 
             if (err == ERR_TIMEOUT) {
