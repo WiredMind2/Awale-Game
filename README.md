@@ -166,7 +166,7 @@ The codebase emphasizes:
 
 ## AI assistance
 
-Some parts of the implementation, refactors, tests and documentation were produced
+Some parts of the implementation, refactors, tests and documentation were produced 
 with the help of AI-assisted developer tools. During development we used the VS Code
 GitHub Copilot and the Kilo Code extensions mostly in agent mode, with three models: 
 GPT-5 mini, Grok Code Fast 1, and Claude Sonnet 4.5.

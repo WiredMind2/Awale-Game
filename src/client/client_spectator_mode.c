@@ -151,9 +151,9 @@ void cmd_spectator_mode(void) {
     board_request_pending = true;
 
     /* Display initial board */
-    msg_board_state_t board_state;
-    err = session_recv_message_timeout(client_state_get_session(), &type, (char*)&board_state,
-                                        sizeof(board_state), &size, 5000, NULL, 0);
+    char buffer[MAX_MESSAGE_SIZE];
+    err = session_recv_message_timeout(client_state_get_session(), &type, buffer,
+                                        MAX_MESSAGE_SIZE, &size, 5000);
 
     if (err == ERR_TIMEOUT) {
         client_log_error(CLIENT_LOG_TIMEOUT_GAME_LIST);  /* Reuse timeout message */
@@ -174,38 +174,51 @@ void cmd_spectator_mode(void) {
         if (IS_NOTIFICATION_MESSAGE(type)) {
             /* This is a notification that arrived during board request wait */
             /* Process it here since notification listener might not have caught it */
-            client_log_info("Received notification %d during board request, processing...", type);
+            /* Keep processing notifications until we get the board state */
+            while (type != MSG_BOARD_STATE && IS_NOTIFICATION_MESSAGE(type)) {
+                client_log_info("Received notification %d during board request, processing...", type);
 
-            /* Handle the notification */
-            if (type == MSG_CHALLENGE_RECEIVED) {
-                // Handle challenge received
-                msg_challenge_received_t* notif = (msg_challenge_received_t*)&board_state;  // Reuse buffer
-                pending_challenges_add(notif->from, notif->challenge_id);
-                ui_display_challenge_received(notif);
-            } else if (type == MSG_GAME_STARTED) {
-                // Handle game started
-                msg_game_started_t* start = (msg_game_started_t*)&board_state;
-                active_games_add(start->game_id, start->player_a, start->player_b, start->your_side);
-                ui_display_game_started(start);
-            } else if (type == MSG_MOVE_RESULT) {
-                /* Move result - trigger board update */
-                spectator_state_notify_update();
-            } else if (type == MSG_GAME_OVER) {
-                // Handle game over
-                msg_game_over_t* game_over = (msg_game_over_t*)&board_state;
-                active_games_remove(game_over->game_id);
-                ui_display_game_over(game_over);
-            } else if (type == MSG_CHAT_MESSAGE) {
-                // Handle chat message
-                msg_chat_message_t* chat = (msg_chat_message_t*)&board_state;
-                ui_display_chat_message(chat);
+                /* Handle the notification */
+                if (type == MSG_CHALLENGE_RECEIVED) {
+                    // Handle challenge received
+                    msg_challenge_received_t* notif = (msg_challenge_received_t*)buffer;
+                    pending_challenges_add(notif->from, notif->challenge_id);
+                    ui_display_challenge_received(notif);
+                } else if (type == MSG_GAME_STARTED) {
+                    // Handle game started
+                    msg_game_started_t* start = (msg_game_started_t*)buffer;
+                    active_games_add(start->game_id, start->player_a, start->player_b, start->your_side);
+                    ui_display_game_started(start);
+                } else if (type == MSG_MOVE_RESULT) {
+                    /* Move result - trigger board update */
+                    spectator_state_notify_update();
+                } else if (type == MSG_GAME_OVER) {
+                    // Handle game over
+                    msg_game_over_t* game_over = (msg_game_over_t*)buffer;
+                    active_games_remove(game_over->game_id);
+                    ui_display_game_over(game_over);
+                } else if (type == MSG_CHAT_MESSAGE) {
+                    // Handle chat message
+                    msg_chat_message_t* chat = (msg_chat_message_t*)buffer;
+                    ui_display_chat_message(chat);
+                } else if (type == MSG_SPECTATOR_JOINED) {
+                    // Handle spectator joined
+                    msg_spectator_joined_t* joined = (msg_spectator_joined_t*)buffer;
+                    client_log_info("Spectator joined: %s (Total: %d)", joined->spectator, joined->spectator_count);
+                }
+
+                /* Continue waiting for board state or more notifications */
+                err = session_recv_message_timeout(client_state_get_session(), &type, buffer,
+                                                    MAX_MESSAGE_SIZE, &size, 5000);
+                if (err != SUCCESS) {
+                    client_log_error("Failed to receive next message after processing notification");
+                    return;
+                }
             }
 
-            /* Continue waiting for board state */
-            err = session_recv_message_timeout(client_state_get_session(), &type, (char*)&board_state,
-                                                sizeof(board_state), &size, 5000, NULL, 0);
-            if (err != SUCCESS || type != MSG_BOARD_STATE) {
-                client_log_error("Still failed to receive board state after processing notification");
+            /* After processing all notifications, check if we got the board state */
+            if (type != MSG_BOARD_STATE) {
+                client_log_error("Expected board state but got message type %d", type);
                 return;
             }
         } else {
@@ -217,19 +230,20 @@ void cmd_spectator_mode(void) {
     }
 
     /* Create board_t from board_state for printing */
+    msg_board_state_t* board_state = (msg_board_state_t*)buffer;
     board_t board;
-    memcpy(board.pits, board_state.pits, sizeof(board.pits));
-    board.scores[0] = board_state.score_a;  /* Player A */
-    board.scores[1] = board_state.score_b;  /* Player B */
-    board.current_player = board_state.current_player;
+    memcpy(board.pits, board_state->pits, sizeof(board.pits));
+    board.scores[0] = board_state->score_a;  /* Player A */
+    board.scores[1] = board_state->score_b;  /* Player B */
+    board.current_player = board_state->current_player;
 
     client_log_info(CLIENT_LOG_SPECTATOR_NEWLINE);
     ui_display_board_simple(&board);
     client_log_info(CLIENT_LOG_SPECTATOR_NEWLINE);
     client_log_info(CLIENT_LOG_SPECTATOR_SCORE_FORMAT,
-           board_state.player_a, board_state.score_a,
-           board_state.player_b, board_state.score_b);
-    const char* current_str = (board_state.current_player == PLAYER_A) ? board_state.player_a : board_state.player_b;
+           board_state->player_a, board_state->score_a,
+           board_state->player_b, board_state->score_b);
+    const char* current_str = (board_state->current_player == PLAYER_A) ? board_state->player_a : board_state->player_b;
     client_log_info(CLIENT_LOG_SPECTATOR_CURRENT_TURN, current_str);
     client_log_info(CLIENT_LOG_SPECTATOR_NEWLINE);
     
@@ -278,8 +292,8 @@ void cmd_spectator_mode(void) {
                     }
                     board_request_pending = true;
 
-                    err = session_recv_message_timeout(client_state_get_session(), &type, (char*)&board_state,
-                                                        sizeof(board_state), &size, 5000, NULL, 0);
+                    err = session_recv_message_timeout(client_state_get_session(), &type, buffer,
+                                                        MAX_MESSAGE_SIZE, &size, 5000);
                     board_request_pending = false;
 
                     if (err == ERR_TIMEOUT) {
@@ -301,19 +315,20 @@ void cmd_spectator_mode(void) {
                     } else {
                         /* Success - display board */
                         /* Create board_t from board_state for printing */
+                        msg_board_state_t* board_state = (msg_board_state_t*)buffer;
                         board_t board;
-                        memcpy(board.pits, board_state.pits, sizeof(board.pits));
-                        board.scores[0] = board_state.score_a;  /* Player A */
-                        board.scores[1] = board_state.score_b;  /* Player B */
-                        board.current_player = board_state.current_player;
+                        memcpy(board.pits, board_state->pits, sizeof(board.pits));
+                        board.scores[0] = board_state->score_a;  /* Player A */
+                        board.scores[1] = board_state->score_b;  /* Player B */
+                        board.current_player = board_state->current_player;
 
                         client_log_info(CLIENT_LOG_SPECTATOR_NEWLINE);
                         ui_display_board_simple(&board);
                         client_log_info(CLIENT_LOG_SPECTATOR_NEWLINE);
                         client_log_info(CLIENT_LOG_SPECTATOR_SCORE_FORMAT,
-                            board_state.player_a, board_state.score_a,
-                            board_state.player_b, board_state.score_b);
-                        const char* current_str = (board_state.current_player == PLAYER_A) ? board_state.player_a : board_state.player_b;
+                            board_state->player_a, board_state->score_a,
+                            board_state->player_b, board_state->score_b);
+                        const char* current_str = (board_state->current_player == PLAYER_A) ? board_state->player_a : board_state->player_b;
                         client_log_info(CLIENT_LOG_SPECTATOR_CURRENT_TURN, current_str);
                         client_log_info(CLIENT_LOG_SPECTATOR_NEWLINE);
                     }
@@ -341,8 +356,8 @@ void cmd_spectator_mode(void) {
             }
             board_request_pending = true;
 
-            err = session_recv_message_timeout(client_state_get_session(), &type, (char*)&board_state,
-                                                sizeof(board_state), &size, 5000, NULL, 0);
+            err = session_recv_message_timeout(client_state_get_session(), &type, buffer,
+                                                MAX_MESSAGE_SIZE, &size, 5000);
             board_request_pending = false;
 
             if (err == ERR_TIMEOUT) {
@@ -364,19 +379,20 @@ void cmd_spectator_mode(void) {
             } else {
                 /* Success - display board */
                 /* Create board_t from board_state for printing */
+                msg_board_state_t* board_state = (msg_board_state_t*)buffer;
                 board_t board;
-                memcpy(board.pits, board_state.pits, sizeof(board.pits));
-                board.scores[0] = board_state.score_a;  /* Player A */
-                board.scores[1] = board_state.score_b;  /* Player B */
-                board.current_player = board_state.current_player;
+                memcpy(board.pits, board_state->pits, sizeof(board.pits));
+                board.scores[0] = board_state->score_a;  /* Player A */
+                board.scores[1] = board_state->score_b;  /* Player B */
+                board.current_player = board_state->current_player;
 
                 client_log_info(CLIENT_LOG_SPECTATOR_NEWLINE);
                 ui_display_board_simple(&board);
                 client_log_info(CLIENT_LOG_SPECTATOR_NEWLINE);
                 client_log_info(CLIENT_LOG_SPECTATOR_SCORE_FORMAT,
-                    board_state.player_a, board_state.score_a,
-                    board_state.player_b, board_state.score_b);
-                const char* current_str = (board_state.current_player == PLAYER_A) ? board_state.player_a : board_state.player_b;
+                    board_state->player_a, board_state->score_a,
+                    board_state->player_b, board_state->score_b);
+                const char* current_str = (board_state->current_player == PLAYER_A) ? board_state->player_a : board_state->player_b;
                 client_log_info(CLIENT_LOG_SPECTATOR_CURRENT_TURN, current_str);
                 client_log_info(CLIENT_LOG_SPECTATOR_NEWLINE);
             }
