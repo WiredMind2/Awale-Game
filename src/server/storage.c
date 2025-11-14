@@ -48,8 +48,6 @@ typedef struct {
     int games_won;
     int games_lost;
     int total_score;
-    time_t first_seen;
-    time_t last_seen;
     char bio[10][256];  /* 10 lines of 256 chars each */
     int bio_lines;
     char friends[MAX_FRIENDS][MAX_PSEUDO_LEN];
@@ -457,8 +455,6 @@ error_code_t storage_save_players(const matchmaking_t* mm) {
         pp.games_won = entry->info.games_won;
         pp.games_lost = entry->info.games_lost;
         pp.total_score = entry->info.total_score;
-        pp.first_seen = entry->info.first_seen;
-        pp.last_seen = entry->info.last_seen;
         /* Copy bio lines */
         pp.bio_lines = entry->info.bio_lines;
         for (int b = 0; b < pp.bio_lines && b < 10; b++) {
@@ -543,9 +539,6 @@ error_code_t storage_load_players(matchmaking_t* mm) {
             entry->info.games_won = pp->games_won;
             entry->info.games_lost = pp->games_lost;
             entry->info.total_score = pp->total_score;
-            entry->last_seen = pp->last_seen;
-            entry->info.first_seen = pp->first_seen;
-            entry->info.last_seen = pp->last_seen;
             entry->info.bio_lines = pp->bio_lines;
             for (int b = 0; b < pp->bio_lines && b < 10; b++) {
                 snprintf(entry->info.bio[b], sizeof(entry->info.bio[b]), "%s", pp->bio[b]);

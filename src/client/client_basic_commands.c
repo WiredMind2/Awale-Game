@@ -428,11 +428,14 @@ __attribute__((unused)) void cmd_friend_management(void)
                 }
 
                 message_type_t type;
-                char dummy[1];
+                char response[MAX_MESSAGE_SIZE];
                 size_t size;
-                err = session_recv_message_timeout(session, &type, dummy, sizeof(dummy), &size, 5000);
+                err = session_recv_message_timeout(session, &type, response, sizeof(response), &size, 5000);
                 if (err == SUCCESS && type == MSG_CHALLENGE_SENT) {  /* Reuse ACK message */
                     printf(CLIENT_UI_FRIEND_ADD_SUCCESS, friend_name);
+                } else if (err == SUCCESS && type == MSG_ERROR) {
+                    msg_error_t* error = (msg_error_t*)response;
+                    printf(CLIENT_UI_FRIEND_ADD_ERROR, error->error_msg);
                 } else {
                     printf(CLIENT_UI_FRIEND_ADD_ERROR, "Server error");
                 }
@@ -460,11 +463,14 @@ __attribute__((unused)) void cmd_friend_management(void)
                 }
 
                 message_type_t type;
-                char dummy[1];
+                char response[MAX_MESSAGE_SIZE];
                 size_t size;
-                err = session_recv_message_timeout(session, &type, dummy, sizeof(dummy), &size, 5000);
+                err = session_recv_message_timeout(session, &type, response, sizeof(response), &size, 5000);
                 if (err == SUCCESS && type == MSG_CHALLENGE_SENT) {  /* Reuse ACK message */
                     printf(CLIENT_UI_FRIEND_REMOVE_SUCCESS, friend_name);
+                } else if (err == SUCCESS && type == MSG_ERROR) {
+                    msg_error_t* error = (msg_error_t*)response;
+                    printf(CLIENT_UI_FRIEND_REMOVE_ERROR, error->error_msg);
                 } else {
                     printf(CLIENT_UI_FRIEND_REMOVE_ERROR, "Server error");
                 }

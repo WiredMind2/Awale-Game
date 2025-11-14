@@ -68,8 +68,6 @@ typedef struct {
     int games_won;
     int games_lost;
     int total_score;
-    time_t first_seen;
-    time_t last_seen;
     /* Bio (10 lines of 256 characters each) */
     char bio[10][256];
     int bio_lines;

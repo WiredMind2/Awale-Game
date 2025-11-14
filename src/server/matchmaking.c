@@ -43,7 +43,6 @@ error_code_t matchmaking_add_player(matchmaking_t* mm, const char* pseudo, const
     for (int i = 0; i < mm->player_count; i++) {
         if (strcmp(mm->players[i].info.pseudo, pseudo) == 0) {
             mm->players[i].connected = true;
-            mm->players[i].last_seen = time(NULL);
             pthread_mutex_unlock(&mm->lock);
             return SUCCESS;
         }
@@ -58,7 +57,6 @@ error_code_t matchmaking_add_player(matchmaking_t* mm, const char* pseudo, const
     strncpy(player->info.pseudo, pseudo, MAX_PSEUDO_LEN - 1);
     strncpy(player->info.ip, ip, MAX_IP_LEN - 1);
     player->connected = true;
-    player->last_seen = time(NULL);
     
     mm->player_count++;
     

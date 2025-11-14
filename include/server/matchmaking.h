@@ -20,7 +20,6 @@ typedef struct {
 typedef struct {
     player_info_t info;
     bool connected;
-    time_t last_seen;
 } player_entry_t;
 
 /* Matchmaking manager */

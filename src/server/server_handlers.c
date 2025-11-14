@@ -491,8 +491,6 @@ void handle_get_player_stats(session_t* session, const msg_get_player_stats_t* s
         response.games_won = player_info.games_won;
         response.games_lost = player_info.games_lost;
         response.total_score = player_info.total_score;
-        response.first_seen = player_info.first_seen;
-        response.last_seen = player_info.last_seen;
     } else {
         response.success = false;
         snprintf(response.message, sizeof(response.message), "Player '%s' not found", stats_req->target_player);

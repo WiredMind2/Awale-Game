@@ -200,8 +200,6 @@ typedef struct {
     int games_won;
     int games_lost;
     int total_score;
-    time_t first_seen;
-    time_t last_seen;
     char message[256];  /* Error message if success=false */
 } msg_player_stats_t;
 

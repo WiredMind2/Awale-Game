@@ -246,8 +246,6 @@ void ui_display_player_stats(const msg_player_stats_t* response) {
     printf(CLIENT_UI_STATS_WIN_RATE,
            response->games_played > 0 ?
            (float)response->games_won / response->games_played * 100 : 0);
-    printf(CLIENT_UI_STATS_FIRST_SEEN, ctime(&response->first_seen));
-    printf(CLIENT_UI_STATS_LAST_SEEN, ctime(&response->last_seen));
     printf(CLIENT_UI_STATS_FOOTER);
 }
 
