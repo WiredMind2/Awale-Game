@@ -65,9 +65,11 @@ void handle_challenge(session_t* session, const char* opponent) {
 
     /* Record the challenge with ID */
     int64_t challenge_id;
-    error_code_t err = matchmaking_create_challenge_with_id(g_matchmaking, session->pseudo, opponent, &challenge_id);
+    bool is_new;
+    error_code_t err = matchmaking_create_challenge_with_id(g_matchmaking, session->pseudo, opponent, &challenge_id, &is_new);
 
     if (err != SUCCESS) {
+        printf("Handle challenge failed for %s -> %s: error code %d\n", session->pseudo, opponent, err);
         session_send_error(session, err, "Failed to create challenge");
         return;
     }
@@ -76,15 +78,17 @@ void handle_challenge(session_t* session, const char* opponent) {
     printf("Challenge sent: %s -> %s (ID: %lld)\n", session->pseudo, opponent, (long long)challenge_id);
     session_send_message(session, MSG_CHALLENGE_SENT, NULL, 0);
 
-    /* Send push notification to opponent */
-    msg_challenge_received_t notification;
-    memset(&notification, 0, sizeof(notification));
-    snprintf(notification.from, MAX_PSEUDO_LEN, "%s", session->pseudo);
-    snprintf(notification.message, 256, "%s challenges you to a game!", session->pseudo);
-    notification.challenge_id = challenge_id;
+    /* Send push notification to opponent only if challenge is newly created */
+    if (is_new) {
+        msg_challenge_received_t notification;
+        memset(&notification, 0, sizeof(notification));
+        snprintf(notification.from, MAX_PSEUDO_LEN, "%s", session->pseudo);
+        snprintf(notification.message, 256, "%s challenges you to a game!", session->pseudo);
+        notification.challenge_id = challenge_id;
 
-    session_send_message(opponent_session, MSG_CHALLENGE_RECEIVED, &notification, sizeof(notification));
-    printf("Notification sent to %s\n", opponent);
+        session_send_message(opponent_session, MSG_CHALLENGE_RECEIVED, &notification, sizeof(notification));
+        printf("Notification sent to %s\n", opponent);
+    }
 }
 
 /* Handle MSG_ACCEPT_CHALLENGE */
@@ -140,6 +144,9 @@ void handle_decline_challenge(session_t* session, const char* challenger) {
         decline_msg.error_code = SUCCESS;
         snprintf(decline_msg.error_msg, 256, "%s declined your challenge", session->pseudo);
         session_send_message(challenger_session, MSG_ERROR, &decline_msg, sizeof(decline_msg));
+        printf("Decline notification sent to %s\n", challenger);
+    } else {
+        printf("Decline notification failed: challenger %s offline\n", challenger);
     }
     
     /* Confirm to decliner */
@@ -671,6 +678,9 @@ void handle_challenge_decline(session_t* session, const msg_challenge_decline_t*
         decline_msg.error_code = SUCCESS;
         snprintf(decline_msg.error_msg, 256, "%s declined your challenge", session->pseudo);
         session_send_message(challenger_session, MSG_ERROR, &decline_msg, sizeof(decline_msg));
+        printf("Decline notification sent to %s (ID-based)\n", challenge->challenger);
+    } else {
+        printf("Decline notification failed: challenger %s offline (ID-based)\n", challenge->challenger);
     }
 
     /* Confirm to decliner */

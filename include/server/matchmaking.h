@@ -51,7 +51,7 @@ bool matchmaking_player_exists(matchmaking_t* mm, const char* pseudo);
 error_code_t matchmaking_create_challenge(matchmaking_t* mm, const char* challenger,
                                          const char* opponent, bool* mutual_found);
 error_code_t matchmaking_create_challenge_with_id(matchmaking_t* mm, const char* challenger,
-                                                 const char* opponent, int64_t* challenge_id);
+                                                  const char* opponent, int64_t* challenge_id, bool* is_new);
 error_code_t matchmaking_remove_challenge(matchmaking_t* mm, const char* challenger, const char* opponent);
 error_code_t matchmaking_remove_challenge_by_id(matchmaking_t* mm, int64_t challenge_id);
 error_code_t matchmaking_find_challenge_by_id(matchmaking_t* mm, int64_t challenge_id, challenge_t** challenge);

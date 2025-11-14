@@ -219,14 +219,15 @@ error_code_t matchmaking_update_player_stats(matchmaking_t* mm, const char* pseu
 }
 
 error_code_t matchmaking_create_challenge_with_id(matchmaking_t* mm, const char* challenger,
-                                                  const char* opponent, int64_t* challenge_id) {
-    if (!mm || !challenger || !opponent || !challenge_id) return ERR_INVALID_PARAM;
+                                                    const char* opponent, int64_t* challenge_id, bool* is_new) {
+    if (!mm || !challenger || !opponent || !challenge_id || !is_new) return ERR_INVALID_PARAM;
 
     pthread_mutex_lock(&mm->lock);
 
     int challenger_idx = get_player_index(mm, challenger);
     int opponent_idx = get_player_index(mm, opponent);
     if (challenger_idx == -1 || opponent_idx == -1) {
+        printf("Challenge creation failed: player not found (%s or %s)\n", challenger, opponent);
         pthread_mutex_unlock(&mm->lock);
         return ERR_PLAYER_NOT_FOUND;
     }
@@ -235,6 +236,8 @@ error_code_t matchmaking_create_challenge_with_id(matchmaking_t* mm, const char*
 
     // Check rate limiting
     if (now - mm->last_challenge_times[challenger_idx][opponent_idx] < 10) {
+        printf("Challenge creation failed: rate limited (last challenge %ld seconds ago)\n",
+               now - mm->last_challenge_times[challenger_idx][opponent_idx]);
         pthread_mutex_unlock(&mm->lock);
         return ERR_RATE_LIMITED;
     }
@@ -244,6 +247,8 @@ error_code_t matchmaking_create_challenge_with_id(matchmaking_t* mm, const char*
         mm->decline_counts[opponent_idx][challenger_idx] = 0;
     }
     if (mm->decline_counts[opponent_idx][challenger_idx] >= 3) {
+        printf("Challenge creation failed: too many declines (%d)\n",
+               mm->decline_counts[opponent_idx][challenger_idx]);
         pthread_mutex_unlock(&mm->lock);
         return ERR_TOO_MANY_DECLINES;
     }
@@ -254,6 +259,8 @@ error_code_t matchmaking_create_challenge_with_id(matchmaking_t* mm, const char*
             strcmp(mm->challenges[i].challenger, challenger) == 0 &&
             strcmp(mm->challenges[i].opponent, opponent) == 0) {
             *challenge_id = mm->challenges[i].challenge_id;
+            *is_new = false;
+            printf("Challenge already exists (ID: %lld), reusing\n", (long long)*challenge_id);
             pthread_mutex_unlock(&mm->lock);
             return SUCCESS;  // Challenge already exists
         }
@@ -261,6 +268,7 @@ error_code_t matchmaking_create_challenge_with_id(matchmaking_t* mm, const char*
 
     // Add new challenge
     if (mm->challenge_count >= MAX_CHALLENGES) {
+        printf("Challenge creation failed: max challenges reached (%d)\n", mm->challenge_count);
         pthread_mutex_unlock(&mm->lock);
         return ERR_MAX_CAPACITY;
     }
@@ -269,12 +277,14 @@ error_code_t matchmaking_create_challenge_with_id(matchmaking_t* mm, const char*
         if (!mm->challenges[i].active) {
             mm->challenges[i].challenge_id = g_next_challenge_id++;
             *challenge_id = mm->challenges[i].challenge_id;
+            *is_new = true;
             strncpy(mm->challenges[i].challenger, challenger, MAX_PSEUDO_LEN - 1);
             strncpy(mm->challenges[i].opponent, opponent, MAX_PSEUDO_LEN - 1);
             mm->challenges[i].created_at = time(NULL);
             mm->challenges[i].active = true;
             mm->challenge_count++;
             mm->last_challenge_times[challenger_idx][opponent_idx] = now;
+            printf("Challenge created: %s -> %s (ID: %lld)\n", challenger, opponent, (long long)*challenge_id);
             break;
         }
     }

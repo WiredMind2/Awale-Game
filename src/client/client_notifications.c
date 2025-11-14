@@ -72,22 +72,46 @@ void* notification_listener(void* arg) {
         /* Check if this is a notification message */
         if (IS_NOTIFICATION_MESSAGE(type)) {
 
-            /* This is a notification, consume and process it */
+            /* This is a notification, consume and process it with retry logic */
             char payload[MAX_PAYLOAD_SIZE];
             size_t size;
+            int recv_retries = 0;
+            const int MAX_RECV_RETRIES = 3;
+            bool recv_success = false;
 
-            err = session_recv_message_timeout(session, &type, payload, MAX_PAYLOAD_SIZE, &size, 1000, NULL, 0);
-            if (err != SUCCESS) {
-                /* Message may have been consumed by main thread between peek and recv - not an error */
-                consecutive_errors = 0;  /* Reset error counter since this is not a network error */
-                continue;
+            while (recv_retries < MAX_RECV_RETRIES && client_state_is_running()) {
+                err = session_recv_message_timeout(session, &type, payload, MAX_PAYLOAD_SIZE, &size, 1000, NULL, 0);
+                if (err == SUCCESS) {
+                    recv_success = true;
+                    break;
+                } else if (err == ERR_TIMEOUT) {
+                    recv_retries++;
+                    continue;
+                } else {
+                    /* Other error - could be network error or message consumed */
+                    break;
+                }
             }
 
-            /* Reset error counter on successful receive */
-            consecutive_errors = 0;
+            if (recv_success) {
+                /* Reset error counter on successful receive */
+                consecutive_errors = 0;
 
-            /* Handle the notification */
-            handle_notification_message(type, payload, size);
+                /* Handle the notification */
+                handle_notification_message(type, payload, size);
+            } else {
+                /* Failed to receive after retries */
+                if (err == ERR_NETWORK_ERROR) {
+                    consecutive_errors++;
+                    ui_display_connection_lost();
+                    client_state_set_running(false);
+                    raise(SIGTERM);
+                    break;
+                } else {
+                    /* Timeout or message consumed by main thread - not a network error */
+                    consecutive_errors = 0;
+                }
+            }
         } else {
             /* Not a notification message - leave it for the main thread */
             consecutive_errors = 0;  /* Reset on successful peek */

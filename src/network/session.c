@@ -1,6 +1,5 @@
 #include "../../include/network/session.h"
 #include "../../include/network/serialization.h"
-#include "../../include/client/client_notifications.h"
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -151,9 +150,6 @@ error_code_t session_recv_message(session_t* session, message_type_t* type, void
             }
             if (actual_size) *actual_size = payload_size;
             return SUCCESS;
-        } else if (IS_NOTIFICATION_MESSAGE(msg_type)) {
-            handle_notification_message(msg_type, temp_payload, payload_size);
-            continue;  // Loop to receive next message
         } else {
             return ERR_UNEXPECTED_MESSAGE;
         }
@@ -229,13 +225,6 @@ error_code_t session_recv_message_timeout(session_t* session, message_type_t* ty
             }
             if (actual_size) *actual_size = payload_size;
             return SUCCESS;
-        } else if (IS_NOTIFICATION_MESSAGE(msg_type)) {
-            handle_notification_message(msg_type, temp_payload, payload_size);
-            // Continue, but timeout is per operation, so reset remaining_timeout? Wait, for loop, need to track time.
-            // For simplicity, since timeout is for the whole operation, but to make it simple, perhaps use a large timeout for each recv, but since it's loop, it's hard.
-            // For now, since the task has 5 seconds, and loop may handle notifications quickly, perhaps set remaining_timeout to timeout_ms each time, but that would allow infinite time if many notifications.
-            // Better to track elapsed time, but for simplicity, since notifications are rare, use timeout_ms for each recv.
-            continue;
         } else {
             return ERR_UNEXPECTED_MESSAGE;
         }
