@@ -545,14 +545,3 @@ bool matchmaking_are_friends(matchmaking_t* mm, const char* pseudo1, const char*
     pthread_mutex_unlock(&mm->lock);
     return false;
 }
-
-int matchmaking_get_player_index(matchmaking_t* mm, const char* pseudo) {
-    if (!mm || !pseudo) return -1;
-
-    for (int i = 0; i < mm->player_count; i++) {
-        if (strcmp(mm->players[i].info.pseudo, pseudo) == 0) {
-            return i;
-        }
-    }
-    return -1;
-}

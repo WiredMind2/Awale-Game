@@ -30,7 +30,8 @@ void print_banner(void) {
 }
 
 void print_menu(void) {
-    system("clear");
+    int ret = system("clear");
+    (void)ret; // Suppress unused variable warning
     int pending = pending_challenges_count();
     int active = active_games_count();
     /* Menu header in bright cyan */
@@ -61,7 +62,8 @@ void print_menu(void) {
 }
 
 void print_menu_highlighted(int selected_option) {
-    system("clear");
+    int ret = system("clear");
+    (void)ret; // Suppress unused variable warning
     int pending = pending_challenges_count();
     int active = active_games_count();
 
@@ -228,7 +230,8 @@ void ui_display_challenge_error(const char* error_msg) {
 }
 
 void ui_display_pending_challenges(int count) {
-    system("clear");
+    int ret = system("clear");
+    (void)ret; // Suppress unused variable warning
     if (count == 0) {
         printf(CLIENT_UI_NO_CHALLENGES);
         return;
@@ -514,7 +517,8 @@ void ui_display_board_detailed(const board_t* board, const char* player_a_name, 
 
 /* Profile management UI functions */
 void ui_display_profile_menu(void) {
-    system("clear");
+    int ret = system("clear");
+    (void)ret; // Suppress unused variable warning
     printf(CLIENT_UI_PROFILE_MENU_HEADER);
     printf(CLIENT_UI_PROFILE_MENU_SEPARATOR);
     printf(CLIENT_UI_PROFILE_MENU_OPTION1);
@@ -526,7 +530,8 @@ void ui_display_profile_menu(void) {
 }
 
 void ui_display_profile_menu_highlighted(int selected_option) {
-    system("clear");
+    int ret = system("clear");
+    (void)ret; // Suppress unused variable warning
     printf(CLIENT_UI_PROFILE_MENU_HEADER);
     printf(CLIENT_UI_PROFILE_MENU_SEPARATOR);
 
@@ -557,7 +562,8 @@ void ui_display_profile_menu_highlighted(int selected_option) {
 
 /* Friend management UI functions */
 void ui_display_friend_menu(void) {
-    system("clear");
+    int ret = system("clear");
+    (void)ret; // Suppress unused variable warning
     printf(CLIENT_UI_FRIEND_MENU_HEADER);
     printf(CLIENT_UI_FRIEND_MENU_SEPARATOR);
     printf(CLIENT_UI_FRIEND_MENU_OPTION1);
@@ -569,7 +575,8 @@ void ui_display_friend_menu(void) {
 }
 
 void ui_display_friend_menu_highlighted(int selected_option) {
-    system("clear");
+    int ret = system("clear");
+    (void)ret; // Suppress unused variable warning
     printf(CLIENT_UI_FRIEND_MENU_HEADER);
     printf(CLIENT_UI_FRIEND_MENU_SEPARATOR);
 
