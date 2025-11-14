@@ -76,7 +76,8 @@ typedef enum {
      (type) == MSG_MOVE_RESULT || \
      (type) == MSG_SPECTATOR_JOINED || \
      (type) == MSG_GAME_OVER || \
-     (type) == MSG_CHAT_MESSAGE)
+     (type) == MSG_CHAT_MESSAGE || \
+     (type) == MSG_PLAYER_STATS)
 
 /* Message header (fixed size for easy parsing) */
 typedef struct {

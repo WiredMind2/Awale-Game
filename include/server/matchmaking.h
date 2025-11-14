@@ -30,6 +30,12 @@ typedef struct {
     player_entry_t players[MAX_PLAYERS];
     int player_count;
     pthread_mutex_t lock;
+    /* Rate limiting: last challenge time from challenger[i] to opponent[j] */
+    time_t last_challenge_times[MAX_PLAYERS][MAX_PLAYERS];
+    /* Decline tracking: count of declines from opponent[j] to challenger[i] */
+    int decline_counts[MAX_PLAYERS][MAX_PLAYERS];
+    /* Last decline time from opponent[j] to challenger[i] */
+    time_t last_decline_times[MAX_PLAYERS][MAX_PLAYERS];
 } matchmaking_t;
 
 /* Matchmaking initialization */
@@ -46,7 +52,7 @@ bool matchmaking_player_exists(matchmaking_t* mm, const char* pseudo);
 error_code_t matchmaking_create_challenge(matchmaking_t* mm, const char* challenger,
                                          const char* opponent, bool* mutual_found);
 error_code_t matchmaking_create_challenge_with_id(matchmaking_t* mm, const char* challenger,
-                                                 const char* opponent, int64_t* challenge_id);
+                                                  const char* opponent, int64_t* challenge_id, bool* is_new);
 error_code_t matchmaking_remove_challenge(matchmaking_t* mm, const char* challenger, const char* opponent);
 error_code_t matchmaking_remove_challenge_by_id(matchmaking_t* mm, int64_t challenge_id);
 error_code_t matchmaking_find_challenge_by_id(matchmaking_t* mm, int64_t challenge_id, challenge_t** challenge);
@@ -60,11 +66,14 @@ int matchmaking_count_challenges_for(matchmaking_t* mm, const char* player);
 
 /* Player statistics management */
 error_code_t matchmaking_update_player_stats(matchmaking_t* mm, const char* pseudo,
-                                            bool game_won, int score_earned);
+                                             bool game_won, int score_earned);
 error_code_t matchmaking_update_player_elo(matchmaking_t* mm, const char* winner_pseudo,
                                           const char* loser_pseudo);
 error_code_t matchmaking_get_player_stats(matchmaking_t* mm, const char* pseudo,
                                          player_info_t* info_out);
+
+/* Utility functions */
+int matchmaking_get_player_index(matchmaking_t* mm, const char* pseudo);
 
 /* Update player's bio lines */
 error_code_t matchmaking_set_player_bio(matchmaking_t* mm, const char* pseudo, const char bio[][256], int lines);

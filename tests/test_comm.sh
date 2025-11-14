@@ -14,7 +14,7 @@ OUTPUT="$(mktemp)"
 # Start server in background
 "$ROOT_DIR"/build/awale_server "$PORT" >"$SERVER_LOG" 2>&1 &
 SERVER_PID=$!
-trap 'kill "$SERVER_PID" 2>/dev/null || true; rm -f "$SERVER_LOG" "$OUTPUT"' EXIT
+trap 'kill "$SERVER_PID" 2>/dev/null || true; if [ "$READY" != true ]; then echo "Server log preserved at $SERVER_LOG" >&2; else rm -f "$SERVER_LOG" "$OUTPUT"; fi' EXIT
 
 # Wait for server ready
 READY=false

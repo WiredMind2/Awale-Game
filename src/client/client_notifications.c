@@ -72,53 +72,45 @@ void* notification_listener(void* arg) {
         /* Check if this is a notification message */
         if (IS_NOTIFICATION_MESSAGE(type)) {
 
-            /* This is a notification, consume and process it */
+            /* This is a notification, consume and process it with retry logic */
             char payload[MAX_PAYLOAD_SIZE];
             size_t size;
+            int recv_retries = 0;
+            const int MAX_RECV_RETRIES = 3;
+            bool recv_success = false;
 
-            err = session_recv_message_timeout(session, &type, payload, MAX_PAYLOAD_SIZE, &size, 1000);
-            if (err != SUCCESS) {
-                /* Should not happen since we peeked successfully, but handle anyway */
-                consecutive_errors++;
-                if (consecutive_errors >= MAX_CONSECUTIVE_ERRORS) {
+            while (recv_retries < MAX_RECV_RETRIES && client_state_is_running()) {
+                err = session_recv_message_timeout(session, &type, payload, MAX_PAYLOAD_SIZE, &size, 1000, NULL, 0);
+                if (err == SUCCESS) {
+                    recv_success = true;
+                    break;
+                } else if (err == ERR_TIMEOUT) {
+                    recv_retries++;
+                    continue;
+                } else {
+                    /* Other error - could be network error or message consumed */
                     break;
                 }
-                continue;
             }
 
-            /* Reset error counter on successful receive */
-            consecutive_errors = 0;
+            if (recv_success) {
+                /* Reset error counter on successful receive */
+                consecutive_errors = 0;
 
-            /* Handle push notifications */
-            if (type == MSG_CHALLENGE_RECEIVED) {
-                msg_challenge_received_t* notif = (msg_challenge_received_t*)payload;
-                pending_challenges_add(notif->from, notif->challenge_id);
-                ui_display_challenge_received(notif);
-            } else if (type == MSG_GAME_STARTED) {
-                msg_game_started_t* start = (msg_game_started_t*)payload;
-
-                /* Add to active games */
-                active_games_add(start->game_id, start->player_a, start->player_b, start->your_side);
-
-                ui_display_game_started(start);
-            } else if (type == MSG_MOVE_RESULT) {
-                /* Notify that a move happened */
-                active_games_notify_turn();
-
-                /* If we're spectating, notify board update */
-                if (spectator_state_is_active()) {
-                    spectator_state_notify_update();
+                /* Handle the notification */
+                handle_notification_message(type, payload, size);
+            } else {
+                /* Failed to receive after retries */
+                if (err == ERR_NETWORK_ERROR) {
+                    consecutive_errors++;
+                    ui_display_connection_lost();
+                    client_state_set_running(false);
+                    raise(SIGTERM);
+                    break;
+                } else {
+                    /* Timeout or message consumed by main thread - not a network error */
+                    consecutive_errors = 0;
                 }
-            } else if (type == MSG_SPECTATOR_JOINED) {
-                msg_spectator_joined_t* notif = (msg_spectator_joined_t*)payload;
-                ui_display_spectator_joined(notif);
-            } else if (type == MSG_GAME_OVER) {
-                msg_game_over_t* game_over = (msg_game_over_t*)payload;
-                active_games_remove(game_over->game_id);
-                ui_display_game_over(game_over);
-            } else if (type == MSG_CHAT_MESSAGE) {
-                msg_chat_message_t* chat = (msg_chat_message_t*)payload;
-                ui_display_chat_message(chat);
             }
         } else {
             /* Not a notification message - leave it for the main thread */
@@ -150,6 +142,43 @@ error_code_t send_challenge_decline(int64_t challenge_id) {
     /* response can be empty for now */
 
     return session_send_message(session, MSG_CHALLENGE_DECLINE, &msg, sizeof(msg));
+}
+
+/* Handle a notification message */
+void handle_notification_message(message_type_t type, const void* payload, size_t size) {
+    (void)size;  /* Size is not used in handling */
+
+    /* Handle push notifications */
+    if (type == MSG_CHALLENGE_RECEIVED) {
+        msg_challenge_received_t* notif = (msg_challenge_received_t*)payload;
+        pending_challenges_add(notif->from, notif->challenge_id);
+        ui_display_challenge_received(notif);
+    } else if (type == MSG_GAME_STARTED) {
+        msg_game_started_t* start = (msg_game_started_t*)payload;
+
+        /* Add to active games */
+        active_games_add(start->game_id, start->player_a, start->player_b, start->your_side);
+
+        ui_display_game_started(start);
+    } else if (type == MSG_MOVE_RESULT) {
+        /* Notify that a move happened */
+        active_games_notify_turn();
+
+        /* If we're spectating, notify board update */
+        if (spectator_state_is_active()) {
+            spectator_state_notify_update();
+        }
+    } else if (type == MSG_SPECTATOR_JOINED) {
+        msg_spectator_joined_t* notif = (msg_spectator_joined_t*)payload;
+        ui_display_spectator_joined(notif);
+    } else if (type == MSG_GAME_OVER) {
+        msg_game_over_t* game_over = (msg_game_over_t*)payload;
+        active_games_remove(game_over->game_id);
+        ui_display_game_over(game_over);
+    } else if (type == MSG_CHAT_MESSAGE) {
+        msg_chat_message_t* chat = (msg_chat_message_t*)payload;
+        ui_display_chat_message(chat);
+    }
 }
 
 /* Start notification listener thread */

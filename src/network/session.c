@@ -6,6 +6,15 @@
 #include <time.h>
 #include <arpa/inet.h>
 
+/* Helper function to check if type is in expected list */
+static bool is_expected_type(message_type_t type, const message_type_t* expected_types, size_t num_expected) {
+    if (!expected_types || num_expected == 0) return true;  /* Accept any if no expected specified */
+    for (size_t i = 0; i < num_expected; i++) {
+        if (expected_types[i] == type) return true;
+    }
+    return false;
+}
+
 error_code_t session_init(session_t* session) {
     if (!session) return ERR_INVALID_PARAM;
     
@@ -84,130 +93,154 @@ error_code_t session_send_message(session_t* session, message_type_t type, const
     return SUCCESS;
 }
 
-error_code_t session_recv_message(session_t* session, message_type_t* type, void* payload, size_t max_payload_size, size_t* actual_size) {
+error_code_t session_recv_message(session_t* session, message_type_t* type, void* payload, size_t max_payload_size, size_t* actual_size, const message_type_t* expected_types, size_t num_expected) {
     if (!session || !type) return ERR_INVALID_PARAM;
-    
+
     /* Check if connection is still alive */
     if (!connection_is_connected(&session->conn)) {
         session->authenticated = false;
         return ERR_NETWORK_ERROR;
     }
-    
-    // First, read the header
-    message_header_t header;
-    size_t received;
-    
-    error_code_t err = connection_recv_raw(&session->conn, &header, sizeof(header), &received);
-    if (err != SUCCESS) {
-        if (err == ERR_NETWORK_ERROR) {
-            session->authenticated = false;
-        }
-        return err;
-    }
-    if (received != sizeof(header)) {
-        session->authenticated = false;
-        return ERR_NETWORK_ERROR;
-    }
-    
-    // Convert from network byte order
-    header.type = ntohl(header.type);
-    header.length = ntohl(header.length);
-    header.sequence = ntohl(header.sequence);
-    
-    /* Validate message header */
-    if (header.length > MAX_PAYLOAD_SIZE) {
-        session->authenticated = false;
-        return ERR_SERIALIZATION;
-    }
-    
-    *type = (message_type_t)header.type;
-    
-    // Read payload if present
-    if (header.length > 0) {
-        if (!payload || header.length > max_payload_size) return ERR_SERIALIZATION;
-        
-        err = connection_recv_raw(&session->conn, payload, header.length, &received);
+
+    while (1) {
+        // First, read the header
+        message_header_t header;
+        size_t received;
+
+        error_code_t err = connection_recv_raw(&session->conn, &header, sizeof(header), &received);
         if (err != SUCCESS) {
             if (err == ERR_NETWORK_ERROR) {
                 session->authenticated = false;
             }
             return err;
         }
-        if (received != header.length) {
+        if (received != sizeof(header)) {
             session->authenticated = false;
             return ERR_NETWORK_ERROR;
         }
-        
-        if (actual_size) *actual_size = header.length;
-    } else {
-        if (actual_size) *actual_size = 0;
+
+        // Convert from network byte order
+        header.type = ntohl(header.type);
+        header.length = ntohl(header.length);
+        header.sequence = ntohl(header.sequence);
+
+        /* Validate message header */
+        if (header.length > MAX_PAYLOAD_SIZE) {
+            session->authenticated = false;
+            return ERR_SERIALIZATION;
+        }
+
+        message_type_t msg_type = (message_type_t)header.type;
+
+        // Read payload if present
+        char temp_payload[MAX_PAYLOAD_SIZE];
+        size_t payload_size = 0;
+        if (header.length > 0) {
+            err = connection_recv_raw(&session->conn, temp_payload, header.length, &received);
+            if (err != SUCCESS) {
+                if (err == ERR_NETWORK_ERROR) {
+                    session->authenticated = false;
+                }
+                return err;
+            }
+            if (received != header.length) {
+                session->authenticated = false;
+                return ERR_NETWORK_ERROR;
+            }
+            payload_size = header.length;
+        }
+
+        session_touch_activity(session);
+
+        if (is_expected_type(msg_type, expected_types, num_expected)) {
+            *type = msg_type;
+            if (payload_size > 0) {
+                if (!payload || payload_size > max_payload_size) return ERR_SERIALIZATION;
+                memcpy(payload, temp_payload, payload_size);
+            }
+            if (actual_size) *actual_size = payload_size;
+            return SUCCESS;
+        } else {
+            return ERR_UNEXPECTED_MESSAGE;
+        }
     }
-    
-    session_touch_activity(session);
-    return SUCCESS;
 }
 
-error_code_t session_recv_message_timeout(session_t* session, message_type_t* type, void* payload, size_t max_payload_size, size_t* actual_size, int timeout_ms) {
+error_code_t session_recv_message_timeout(session_t* session, message_type_t* type, void* payload, size_t max_payload_size, size_t* actual_size, int timeout_ms, const message_type_t* expected_types, size_t num_expected) {
     if (!session || !type) return ERR_INVALID_PARAM;
-    
+
     /* Check if connection is still alive */
     if (!connection_is_connected(&session->conn)) {
         session->authenticated = false;
         return ERR_NETWORK_ERROR;
     }
-    
-    // First, read the header with timeout
-    message_header_t header;
-    size_t received;
-    
-    error_code_t err = connection_recv_timeout(&session->conn, &header, sizeof(header), &received, timeout_ms);
-    if (err != SUCCESS) {
-        if (err == ERR_NETWORK_ERROR) {
-            session->authenticated = false;
-        }
-        return err;
-    }
-    if (received != sizeof(header)) {
-        session->authenticated = false;
-        return ERR_NETWORK_ERROR;
-    }
-    
-    // Convert from network byte order
-    header.type = ntohl(header.type);
-    header.length = ntohl(header.length);
-    header.sequence = ntohl(header.sequence);
-    
-    /* Validate message header */
-    if (header.length > MAX_PAYLOAD_SIZE) {
-        session->authenticated = false;
-        return ERR_SERIALIZATION;
-    }
-    
-    *type = (message_type_t)header.type;
-    
-    // Read payload if present (also with timeout)
-    if (header.length > 0) {
-        if (!payload || header.length > max_payload_size) return ERR_SERIALIZATION;
-        
-        err = connection_recv_timeout(&session->conn, payload, header.length, &received, timeout_ms);
+
+    int remaining_timeout = timeout_ms;
+
+    while (remaining_timeout > 0) {
+        // First, read the header with timeout
+        message_header_t header;
+        size_t received;
+
+        error_code_t err = connection_recv_timeout(&session->conn, &header, sizeof(header), &received, remaining_timeout);
         if (err != SUCCESS) {
             if (err == ERR_NETWORK_ERROR) {
                 session->authenticated = false;
             }
             return err;
         }
-        if (received != header.length) {
+        if (received != sizeof(header)) {
             session->authenticated = false;
             return ERR_NETWORK_ERROR;
         }
-        
-        if (actual_size) *actual_size = header.length;
-    } else {
-        if (actual_size) *actual_size = 0;
+
+        // Convert from network byte order
+        header.type = ntohl(header.type);
+        header.length = ntohl(header.length);
+        header.sequence = ntohl(header.sequence);
+
+        /* Validate message header */
+        if (header.length > MAX_PAYLOAD_SIZE) {
+            session->authenticated = false;
+            return ERR_SERIALIZATION;
+        }
+
+        message_type_t msg_type = (message_type_t)header.type;
+
+        // Read payload if present (also with timeout)
+        char temp_payload[MAX_PAYLOAD_SIZE];
+        size_t payload_size = 0;
+        if (header.length > 0) {
+            err = connection_recv_timeout(&session->conn, temp_payload, header.length, &received, remaining_timeout);
+            if (err != SUCCESS) {
+                if (err == ERR_NETWORK_ERROR) {
+                    session->authenticated = false;
+                }
+                return err;
+            }
+            if (received != header.length) {
+                session->authenticated = false;
+                return ERR_NETWORK_ERROR;
+            }
+            payload_size = header.length;
+        }
+
+        session_touch_activity(session);
+
+        if (is_expected_type(msg_type, expected_types, num_expected)) {
+            *type = msg_type;
+            if (payload_size > 0) {
+                if (!payload || payload_size > max_payload_size) return ERR_SERIALIZATION;
+                memcpy(payload, temp_payload, payload_size);
+            }
+            if (actual_size) *actual_size = payload_size;
+            return SUCCESS;
+        } else {
+            return ERR_UNEXPECTED_MESSAGE;
+        }
     }
-    
-    session_touch_activity(session);
-    return SUCCESS;
+
+    return ERR_TIMEOUT;  // If loop exits without finding expected
 }
 
 error_code_t session_peek_message_type(session_t* session, message_type_t* type, int timeout_ms) {

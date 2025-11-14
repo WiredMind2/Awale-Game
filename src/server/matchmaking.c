@@ -8,13 +8,30 @@
 /* Static counter for challenge ID generation */
 static int64_t g_next_challenge_id = 1;
 
+/* Helper function to get player index from pseudo */
+static int get_player_index(matchmaking_t* mm, const char* pseudo) {
+    for (int i = 0; i < mm->player_count; i++) {
+        if (strcmp(mm->players[i].info.pseudo, pseudo) == 0) {
+            return i;
+        }
+    }
+    return -1;
+}
+
+/* Public wrapper matching header API */
+int matchmaking_get_player_index(matchmaking_t* mm, const char* pseudo) {
+    return get_player_index(mm, pseudo);
+}
+
 error_code_t matchmaking_init(matchmaking_t* mm) {
     if (!mm) return ERR_INVALID_PARAM;
 
     mm->challenge_count = 0;
     mm->player_count = 0;
     pthread_mutex_init(&mm->lock, NULL);
-
+    memset(mm->last_challenge_times, 0, sizeof(mm->last_challenge_times));
+    memset(mm->decline_counts, 0, sizeof(mm->decline_counts));
+    memset(mm->last_decline_times, 0, sizeof(mm->last_decline_times));
     for (int i = 0; i < MAX_CHALLENGES; i++) {
         mm->challenges[i].active = false;
     }
@@ -47,7 +64,6 @@ error_code_t matchmaking_add_player(matchmaking_t* mm, const char* pseudo, const
     for (int i = 0; i < mm->player_count; i++) {
         if (strcmp(mm->players[i].info.pseudo, pseudo) == 0) {
             mm->players[i].connected = true;
-            mm->players[i].last_seen = time(NULL);
             pthread_mutex_unlock(&mm->lock);
             return SUCCESS;
         }
@@ -73,7 +89,6 @@ error_code_t matchmaking_add_player(matchmaking_t* mm, const char* pseudo, const
     player->info.elo_rating = ELO_DEFAULT_RATING;
     player->info.bio_lines = 0;
     player->info.friend_count = 0;
-
     mm->player_count++;
     
     pthread_mutex_unlock(&mm->lock);
@@ -280,8 +295,8 @@ error_code_t matchmaking_update_player_elo(matchmaking_t* mm, const char* winner
 }
 
 error_code_t matchmaking_create_challenge_with_id(matchmaking_t* mm, const char* challenger,
-                                                  const char* opponent, int64_t* challenge_id) {
-    if (!mm || !challenger || !opponent || !challenge_id) return ERR_INVALID_PARAM;
+                                                  const char* opponent, int64_t* challenge_id, bool* is_new) {
+    if (!mm || !challenger || !opponent || !challenge_id || !is_new) return ERR_INVALID_PARAM;
 
     pthread_mutex_lock(&mm->lock);
 
@@ -293,18 +308,42 @@ error_code_t matchmaking_create_challenge_with_id(matchmaking_t* mm, const char*
         return ERR_INVALID_PARAM; // Cannot challenge AI with AI
     }
 
-    // Check if challenge already exists between these players
+    int challenger_idx = get_player_index(mm, challenger);
+    int opponent_idx = get_player_index(mm, opponent);
+    if (challenger_idx == -1 || opponent_idx == -1) {
+        pthread_mutex_unlock(&mm->lock);
+        return ERR_PLAYER_NOT_FOUND;
+    }
+
+    time_t now = time(NULL);
+
+    // Rate limiting: 10s between same challenger->opponent
+    if (now - mm->last_challenge_times[challenger_idx][opponent_idx] < 10) {
+        pthread_mutex_unlock(&mm->lock);
+        return ERR_RATE_LIMITED;
+    }
+
+    // Decline tracking: reset counts after 5 minutes
+    if (now - mm->last_decline_times[opponent_idx][challenger_idx] >= 300) {
+        mm->decline_counts[opponent_idx][challenger_idx] = 0;
+    }
+    if (mm->decline_counts[opponent_idx][challenger_idx] >= 3) {
+        pthread_mutex_unlock(&mm->lock);
+        return ERR_TOO_MANY_DECLINES;
+    }
+
+    // Check if challenge already exists
     for (int i = 0; i < MAX_CHALLENGES; i++) {
         if (mm->challenges[i].active &&
             strcmp(mm->challenges[i].challenger, challenger) == 0 &&
             strcmp(mm->challenges[i].opponent, opponent) == 0) {
             *challenge_id = mm->challenges[i].challenge_id;
+            *is_new = false;
             pthread_mutex_unlock(&mm->lock);
-            return SUCCESS;  // Challenge already exists
+            return SUCCESS;
         }
     }
 
-    // Add new challenge
     if (mm->challenge_count >= MAX_CHALLENGES) {
         pthread_mutex_unlock(&mm->lock);
         return ERR_MAX_CAPACITY;
@@ -314,11 +353,13 @@ error_code_t matchmaking_create_challenge_with_id(matchmaking_t* mm, const char*
         if (!mm->challenges[i].active) {
             mm->challenges[i].challenge_id = g_next_challenge_id++;
             *challenge_id = mm->challenges[i].challenge_id;
+            *is_new = true;
             strncpy(mm->challenges[i].challenger, challenger, MAX_PSEUDO_LEN - 1);
             strncpy(mm->challenges[i].opponent, opponent, MAX_PSEUDO_LEN - 1);
-            mm->challenges[i].created_at = time(NULL);
+            mm->challenges[i].created_at = now;
             mm->challenges[i].active = true;
             mm->challenge_count++;
+            mm->last_challenge_times[challenger_idx][opponent_idx] = now;
             break;
         }
     }
@@ -511,4 +552,15 @@ bool matchmaking_are_friends(matchmaking_t* mm, const char* pseudo1, const char*
     }
     pthread_mutex_unlock(&mm->lock);
     return false;
+}
+
+int matchmaking_get_player_index(matchmaking_t* mm, const char* pseudo) {
+    if (!mm || !pseudo) return -1;
+
+    for (int i = 0; i < mm->player_count; i++) {
+        if (strcmp(mm->players[i].info.pseudo, pseudo) == 0) {
+            return i;
+        }
+    }
+    return -1;
 }

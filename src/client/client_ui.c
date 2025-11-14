@@ -6,6 +6,7 @@
 #include "../../include/client/client_state.h"
 #include "../../include/client/client_logging.h"
 #include "../../include/client/client_notifications.h"
+#include "../../include/client/ansi_colors.h"
 #include "../../include/common/types.h"
 #include "../../include/game/board.h"
 #include <stdio.h>
@@ -18,18 +19,22 @@
 
 #include "client/client_ui_strings.h"
 void print_banner(void) {
+    /* Banner in cyan for visibility */
+    printf(ANSI_COLOR_BRIGHT_CYAN);
     printf(CLIENT_UI_BANNER_LINE1);
     printf(CLIENT_UI_BANNER_LINE2);
     printf(CLIENT_UI_BANNER_LINE3);
     printf(CLIENT_UI_BANNER_LINE4);
     printf(CLIENT_UI_BANNER_LINE5);
+    printf(ANSI_COLOR_RESET);
 }
 
 void print_menu(void) {
     system("clear");
     int pending = pending_challenges_count();
     int active = active_games_count();
-
+    /* Menu header in bright cyan */
+    printf(ANSI_COLOR_BRIGHT_CYAN);
     printf(CLIENT_UI_MENU_LINE1);
     printf(CLIENT_UI_MENU_LINE2);
     printf(CLIENT_UI_MENU_LINE3);
@@ -50,6 +55,8 @@ void print_menu(void) {
     printf("%-32s%-24s\n", MENU_OPTION_6, MENU_OPTION_12);
     printf("%-32s\n", MENU_OPTION_13);
     printf(CLIENT_UI_MENU_LINE7);
+    /* Reset color before prompt so user input isn't colored */
+    printf(ANSI_COLOR_RESET);
     printf(CLIENT_UI_MENU_PROMPT);
 }
 
@@ -130,6 +137,8 @@ void print_menu_highlighted(int selected_option) {
 }
 
 void print_board(const msg_board_state_t* board) {
+    /* Color the board display subtly to improve readability */
+    printf(ANSI_COLOR_BRIGHT_MAGENTA);
     printf(CLIENT_UI_BOARD_LINE1);
     printf(CLIENT_UI_BOARD_LINE2);
     printf(CLIENT_UI_BOARD_LINE3);
@@ -177,6 +186,7 @@ void print_board(const msg_board_state_t* board) {
     }
     printf(CLIENT_UI_BOARD_LINE8);
     printf(CLIENT_UI_BOARD_LINE9);
+    printf(ANSI_COLOR_RESET);
 }
 
 void clear_input(void) {
@@ -323,8 +333,6 @@ void ui_display_player_stats(const msg_player_stats_t* response) {
     printf(CLIENT_UI_STATS_WIN_RATE,
            response->games_played > 0 ?
            (float)response->games_won / response->games_played * 100 : 0);
-    printf(CLIENT_UI_STATS_FIRST_SEEN, ctime(&response->first_seen));
-    printf(CLIENT_UI_STATS_LAST_SEEN, ctime(&response->last_seen));
     printf(CLIENT_UI_STATS_FOOTER);
 }
 

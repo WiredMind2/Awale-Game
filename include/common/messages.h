@@ -3,6 +3,7 @@
 
 #include "types.h"
 #include "protocol.h"
+#include <time.h>
 
 /* Message payload structures */
 
@@ -30,10 +31,16 @@ typedef struct {
     char error_msg[256];
 } msg_error_t;
 
+/* Player list item (reduced info for listing) */
+typedef struct {
+    char pseudo[MAX_PSEUDO_LEN];
+    char ip[MAX_IP_LEN];
+} player_list_item_t;
+
 /* MSG_LIST_PLAYERS / MSG_PLAYER_LIST */
 typedef struct {
     int count;
-    player_info_t players[100];  /* Max 100 players */
+    player_list_item_t players[100];  /* Max 100 players */
 } msg_player_list_t;
 
 /* MSG_CHALLENGE */

@@ -77,6 +77,17 @@ void pending_challenges_init(void) {
 
 void pending_challenges_add(const char* challenger, int64_t challenge_id) {
     pthread_mutex_lock(&g_pending_challenges.lock);
+
+    /* Check for existing challenge with same ID */
+    for (int i = 0; i < MAX_PENDING_CHALLENGES; i++) {
+        if (g_pending_challenges.challenges[i].active &&
+            g_pending_challenges.challenges[i].challenge_id == challenge_id) {
+            pthread_mutex_unlock(&g_pending_challenges.lock);
+            return;
+        }
+    }
+
+    /* Add new challenge if no duplicate found */
     for (int i = 0; i < MAX_PENDING_CHALLENGES; i++) {
         if (!g_pending_challenges.challenges[i].active) {
             snprintf(g_pending_challenges.challenges[i].challenger, MAX_PSEUDO_LEN, "%s", challenger);

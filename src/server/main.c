@@ -42,9 +42,8 @@ typedef struct
 /* Signal handler */
 void signal_handler(int sig)
 {
-    (void)sig;
+    printf("\n\nReceived signal %d, shutting down server...\n", sig);
     g_running = false;
-    printf("\n\nShutting down server...\n");
 }
 
 /* Simple FNV-1a 32-bit hash for strings */
@@ -58,8 +57,9 @@ static uint32_t fnv1a_hash(const char *s) {
 }
 
 int main(int argc, char** argv) {
+    printf("Server main started\n");
     g_discovery_port = 12345;  /* Default discovery port */
-    
+
     if (argc == 2) {
         g_discovery_port = atoi(argv[1]);
     }
@@ -79,27 +79,41 @@ int main(int argc, char** argv) {
     printf("Initializing...\n");
 
     /* Initialize managers */
+    printf("Initializing game manager\n");
     if (game_manager_init(&g_game_manager) != SUCCESS)
     {
         fprintf(stderr, "Failed to initialize game manager\n");
         return 1;
     }
+    printf("Game manager initialized\n");
 
+    printf("Initializing matchmaking\n");
     if (matchmaking_init(&g_matchmaking) != SUCCESS)
     {
         fprintf(stderr, "Failed to initialize matchmaking\n");
         return 1;
     }
+    printf("Matchmaking initialized\n");
 
+    printf("Initializing session registry\n");
     session_registry_init();
+    printf("Session registry initialized\n");
+
+    printf("Initializing handlers\n");
     handlers_init(&g_game_manager, &g_matchmaking);
+    printf("Handlers initialized\n");
+
+    printf("Initializing connection manager\n");
     connection_manager_init(&g_game_manager, &g_matchmaking, &g_running, g_discovery_port);
-    
+    printf("Connection manager initialized\n");
+
     /* Initialize storage */
+    printf("Initializing storage\n");
     if (storage_init() != SUCCESS) {
         fprintf(stderr, "Failed to initialize storage\n");
         return 1;
     }
+    printf("Storage initialized\n");
     
     printf("Game manager initialisé\n");
     printf("Matchmaking initialisé\n");
@@ -108,10 +122,13 @@ int main(int argc, char** argv) {
     printf("Connection manager initialisé\n");
 
     /* Setup signal handler */
+    printf("Setting up signal handlers\n");
     signal(SIGINT, signal_handler);
     signal(SIGTERM, signal_handler);
+    printf("Signal handlers set\n");
 
     /* Start UDP broadcast discovery thread */
+    printf("Starting UDP discovery thread\n");
     pthread_t udp_thread;
     if (pthread_create(&udp_thread, NULL, udp_discovery_thread, NULL) != 0)
     {
@@ -122,13 +139,20 @@ int main(int argc, char** argv) {
     printf("UDP broadcast discovery listening on port 12346\n");
 
     /* Create discovery server (single socket) */
+    printf("Creating discovery server\n");
     connection_t discovery_server;
-    if (connection_init(&discovery_server) != SUCCESS ||
-        connection_create_server(&discovery_server, g_discovery_port) != SUCCESS)
+    if (connection_init(&discovery_server) != SUCCESS)
     {
-        fprintf(stderr, "Failed to create discovery server\n");
+        fprintf(stderr, "Failed to init discovery server connection\n");
         return 1;
     }
+    printf("Connection init done\n");
+    if (connection_create_server(&discovery_server, g_discovery_port) != SUCCESS)
+    {
+        fprintf(stderr, "Failed to create discovery server socket\n");
+        return 1;
+    }
+    printf("Discovery server created\n");
 
     printf("Discovery server listening on port %d\n", g_discovery_port);
     printf("\nServer ready! Waiting for connections...\n\n");
@@ -189,25 +213,24 @@ int main(int argc, char** argv) {
 
         connect_msg.pseudo[MAX_PSEUDO_LEN - 1] = '\0';
 
-        msg_player_list_t list;
+        player_info_t players[100];
         int count;
-        error_code_t error_matchmaking = matchmaking_get_players(&g_matchmaking, list.players, 100, &count);
+        error_code_t error_matchmaking = matchmaking_get_players(&g_matchmaking, players, 100, &count);
+        bool pseudo_already_use = false;
         if (error_matchmaking == SUCCESS)
         {
-            list.count = count;
-        }
-        bool pseudo_already_use= false;
-        for (int i = 0; i < count; i++)
-        {
-            if (strcmp(connect_msg.pseudo, list.players[i].pseudo) == 0)
-            {      
-                // Send a proper connect ACK with success=false so the client will detect the rejection
-                session_t temp_fail_session;
-                memset(&temp_fail_session, 0, sizeof(temp_fail_session));
-                temp_fail_session.conn = client_conn;
-                session_send_connect_ack(&temp_fail_session, false, "Pseudo deja utilise");
-                pseudo_already_use=true;
-                break;
+            for (int i = 0; i < count; i++)
+            {
+                if (strcmp(connect_msg.pseudo, players[i].pseudo) == 0)
+                {
+                    // Send a proper connect ACK with success=false so the client will detect the rejection
+                    session_t temp_fail_session;
+                    memset(&temp_fail_session, 0, sizeof(temp_fail_session));
+                    temp_fail_session.conn = client_conn;
+                    session_send_connect_ack(&temp_fail_session, false, "Pseudo deja utilise");
+                    pseudo_already_use = true;
+                    break;
+                }
             }
         }
         if (pseudo_already_use)

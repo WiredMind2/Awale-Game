@@ -28,23 +28,30 @@ void handle_list_players(session_t* session) {
     msg_player_list_t list;
     int count;
 
-    printf("DEBUG: Calling matchmaking_get_players\n");
-    error_code_t err = matchmaking_get_players(g_matchmaking, list.players, 100, &count);
-    printf("DEBUG: matchmaking_get_players returned %d, count=%d\n", err, count);
+    /* Get full player info */
+    player_info_t full_players[100];
+    error_code_t err = matchmaking_get_players(g_matchmaking, full_players, 100, &count);
     if (err == SUCCESS) {
         list.count = count;
 
-        /* Calculate actual size: count field + only the actual number of players */
-        size_t actual_size = sizeof(list.count) + (count * sizeof(player_info_t));
-        printf("DEBUG: Calculated actual_size=%zu\n", actual_size);
-
-        printf("DEBUG: Calling session_send_message\n");
-        error_code_t send_err = session_send_message(session, MSG_PLAYER_LIST, &list, actual_size);
-        printf("DEBUG: session_send_message returned %d\n", send_err);
-        if (send_err != SUCCESS) {
-            printf("DEBUG: Send failed, sending error\n");
-            session_send_error(session, send_err, "Failed to send player list");
+        /* Copy only pseudo and ip to the list */
+        for (int i = 0; i < count; i++) {
+            memcpy(list.players[i].pseudo, full_players[i].pseudo, MAX_PSEUDO_LEN);
+            memcpy(list.players[i].ip, full_players[i].ip, MAX_IP_LEN);
         }
+
+        /* Calculate actual size: count field + only the actual number of players */
+        size_t actual_size = sizeof(list.count) + (count * sizeof(player_list_item_t));
+
+        /* Validate payload size */
+        if (actual_size > MAX_PAYLOAD_SIZE) {
+            session_send_error(session, ERR_INVALID_PARAM, "Too many players to list");
+            return;
+        }
+
+        printf("Sending player list with %d players, size %zu\n", count, actual_size);
+        session_send_message(session, MSG_PLAYER_LIST, &list, actual_size);
+    }
     } else {
         printf("DEBUG: matchmaking_get_players failed, sending error\n");
         session_send_error(session, err, "Failed to get player list");
@@ -63,9 +70,11 @@ void handle_challenge(session_t* session, const char* opponent) {
 
     /* Record the challenge with ID */
     int64_t challenge_id;
-    error_code_t err = matchmaking_create_challenge_with_id(g_matchmaking, session->pseudo, opponent, &challenge_id);
+    bool is_new;
+    error_code_t err = matchmaking_create_challenge_with_id(g_matchmaking, session->pseudo, opponent, &challenge_id, &is_new);
 
     if (err != SUCCESS) {
+        printf("Handle challenge failed for %s -> %s: error code %d\n", session->pseudo, opponent, err);
         session_send_error(session, err, "Failed to create challenge");
         return;
     }
@@ -74,15 +83,17 @@ void handle_challenge(session_t* session, const char* opponent) {
     printf("Challenge sent: %s -> %s (ID: %lld)\n", session->pseudo, opponent, (long long)challenge_id);
     session_send_message(session, MSG_CHALLENGE_SENT, NULL, 0);
 
-    /* Send push notification to opponent */
-    msg_challenge_received_t notification;
-    memset(&notification, 0, sizeof(notification));
-    snprintf(notification.from, MAX_PSEUDO_LEN, "%s", session->pseudo);
-    snprintf(notification.message, 256, "%s challenges you to a game!", session->pseudo);
-    notification.challenge_id = challenge_id;
+    /* Send push notification to opponent only if challenge is newly created */
+    if (is_new) {
+        msg_challenge_received_t notification;
+        memset(&notification, 0, sizeof(notification));
+        snprintf(notification.from, MAX_PSEUDO_LEN, "%s", session->pseudo);
+        snprintf(notification.message, 256, "%s challenges you to a game!", session->pseudo);
+        notification.challenge_id = challenge_id;
 
-    session_send_message(opponent_session, MSG_CHALLENGE_RECEIVED, &notification, sizeof(notification));
-    printf("Notification sent to %s\n", opponent);
+        session_send_message(opponent_session, MSG_CHALLENGE_RECEIVED, &notification, sizeof(notification));
+        printf("Notification sent to %s\n", opponent);
+    }
 }
 
 /* Handle MSG_ACCEPT_CHALLENGE */
@@ -138,6 +149,9 @@ void handle_decline_challenge(session_t* session, const char* challenger) {
         decline_msg.error_code = SUCCESS;
         snprintf(decline_msg.error_msg, 256, "%s declined your challenge", session->pseudo);
         session_send_message(challenger_session, MSG_ERROR, &decline_msg, sizeof(decline_msg));
+        printf("Decline notification sent to %s\n", challenger);
+    } else {
+        printf("Decline notification failed: challenger %s offline\n", challenger);
     }
     
     /* Confirm to decliner */
@@ -360,12 +374,15 @@ void handle_spectate_game(session_t* session, const char* game_id) {
         return;
     }
 
-    /* Check if spectator is friend with at least one player */
-    bool is_friend = matchmaking_are_friends(g_matchmaking, session->pseudo, game->player_a) ||
-                     matchmaking_are_friends(g_matchmaking, session->pseudo, game->player_b);
+    /* Check if spectator is friend with at least one player, or is a player in the game */
+    bool is_friend_a = matchmaking_are_friends(g_matchmaking, session->pseudo, game->player_a);
+    bool is_friend_b = matchmaking_are_friends(g_matchmaking, session->pseudo, game->player_b);
+    bool is_player_a = strcmp(session->pseudo, game->player_a) == 0;
+    bool is_player_b = strcmp(session->pseudo, game->player_b) == 0;
+    bool is_authorized = is_friend_a || is_friend_b || is_player_a || is_player_b;
 
-    if (!is_friend) {
-        session_send_error(session, ERR_INVALID_PARAM, "You must be friends with at least one player to spectate this private game");
+    if (!is_authorized) {
+        session_send_error(session, ERR_INVALID_PARAM, "You must be friends with at least one player or be a player in the game to spectate");
         return;
     }
 
@@ -682,6 +699,20 @@ void handle_challenge_decline(session_t* session, const msg_challenge_decline_t*
         return;
     }
 
+    /* Track decline for rate limiting */
+    pthread_mutex_lock(&g_matchmaking->lock);
+    int challenger_idx = matchmaking_get_player_index(g_matchmaking, challenge->challenger);
+    int opponent_idx = matchmaking_get_player_index(g_matchmaking, challenge->opponent);
+    if (challenger_idx != -1 && opponent_idx != -1) {
+        time_t now = time(NULL);
+        if (now - g_matchmaking->last_decline_times[opponent_idx][challenger_idx] >= 300) {
+            g_matchmaking->decline_counts[opponent_idx][challenger_idx] = 0;
+        }
+        g_matchmaking->decline_counts[opponent_idx][challenger_idx]++;
+        g_matchmaking->last_decline_times[opponent_idx][challenger_idx] = now;
+    }
+    pthread_mutex_unlock(&g_matchmaking->lock);
+
     printf("Challenge declined: %s -> %s\n", challenge->challenger, session->pseudo);
 
     /* Remove the challenge */
@@ -694,6 +725,9 @@ void handle_challenge_decline(session_t* session, const msg_challenge_decline_t*
         decline_msg.error_code = SUCCESS;
         snprintf(decline_msg.error_msg, 256, "%s declined your challenge", session->pseudo);
         session_send_message(challenger_session, MSG_ERROR, &decline_msg, sizeof(decline_msg));
+        printf("Decline notification sent to %s (ID-based)\n", challenge->challenger);
+    } else {
+        printf("Decline notification failed: challenger %s offline (ID-based)\n", challenge->challenger);
     }
 
     /* Confirm to decliner */

@@ -250,8 +250,6 @@
 #define CLIENT_UI_STATS_GAMES_LOST "  Games lost:   %d\n"
 #define CLIENT_UI_STATS_TOTAL_SCORE "  Total score:  %d\n"
 #define CLIENT_UI_STATS_WIN_RATE "  Win rate:     %.1f%%\n"
-#define CLIENT_UI_STATS_FIRST_SEEN "  First seen:   %s"
-#define CLIENT_UI_STATS_LAST_SEEN "  Last seen:    %s"
 #define CLIENT_UI_STATS_FOOTER "─────────────────────────────\n"
 #define CLIENT_UI_STATS_DISPLAY_ERROR "%s\n"
 

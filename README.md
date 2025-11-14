@@ -1,11 +1,13 @@
 # Awale Game - Modular Client/Server Implementation
 
-A modern, cross-platform implementation of Awale (Oware/Mancala) using C with a clean modular architecture and single-socket TCP communication.
+Awale is a modular C implementation of the Awale (Oware/Mancala) game. The
+project separates pure game logic from networking and server/client code so
+the game can be unit-tested independently from the network layer.
 
 ## Features
 
 - **Modular Architecture**: Clean separation between game logic, networking, and UI
-- **Single-Socket Communication**: Simplified TCP connections (no port negotiation)
+- **Single-Socket Communication**: Simplified TCP connections (discovery + single TCP connection)
 - **Automatic Server Discovery**: UDP broadcast for easy local network setup
 - **Cross-Platform**: Works on Linux, macOS, and Windows (WSL)
 - **Thread-Safe**: Concurrent game support with proper synchronization
@@ -33,10 +35,15 @@ Note: The language setting is compile-time and affects all client UI strings.
 - **Client**: Text-based UI and command processing
 
 ### Network Design
-- **Single TCP Socket**: Bidirectional communication on one connection
-- **UDP Discovery**: Automatic server detection on local networks
-- **Message Protocol**: Typed messages with fixed headers and variable payloads
-- **No Port Negotiation**: Direct connection to server discovery port
+- **UDP Discovery (broadcast)**: Clients broadcast a discovery packet on UDP port
+	`12346` and servers respond with their TCP discovery port and IP.
+- **TCP Discovery Port**: Servers listen on a configurable TCP discovery port
+	(default `12345`) for incoming client connections; that TCP connection is
+	used for all bidirectional communication.
+- **Single TCP Socket**: After discovery the client connects to the server's
+	TCP discovery port and uses that single socket for messaging (reads + writes).
+- **Message Protocol**: Typed messages with a fixed 16-byte header and a
+	variable-length payload (network byte order used for integers).
 
 ## Quick Start
 
@@ -47,34 +54,30 @@ Note: The language setting is compile-time and affects all client UI strings.
 
 ### Build
 ```bash
-make all          # Build both client and server
-make server       # Build server only
-make client       # Build client only
-make test         # Run automated tests
+make          # Build both client and server
 make clean        # Clean build artifacts
 ```
 
 ### Run
 
-**Terminal 1: Start Server**
+Start the server (discovery port default: `12345`) and clients which
+auto-discover the server via UDP broadcast:
+
+Server:
 ```bash
-make run-server          # Auto-discovers on port 12345
-# OR
-./build/awale_server    # Uses default port 12345
+make server
+./build/awale_server     # default discovery port 12345 (configurable)
 ```
 
-**Terminal 2: Start Client A**
+Client (auto-discover):
 ```bash
-make run-client PSEUDO=Alice    # Auto-discovers server via UDP
-# OR
-./build/awale_client Alice      # Auto-discovers server
-# OR
-./build/awale_client -s 192.168.1.100 Alice  # Direct IP connection
+make client
+./build/awale_client Alice      # client broadcasts discovery over UDP:12346
 ```
 
-**Terminal 3: Start Client B**
+Client (direct connect to IP):
 ```bash
-./build/awale_client Bob
+./build/awale_client -s 192.168.1.100 Alice
 ```
 
 ### Gameplay
@@ -93,36 +96,43 @@ make run-client PSEUDO=Alice    # Auto-discovers server via UDP
 
 ## Network Ports
 
-- **UDP 12346**: Broadcast discovery (client → server discovery)
-- **TCP 12345**: Server discovery port (default, configurable)
-- **Dynamic TCP**: Game connections (assigned by system)
+- **UDP 12346**: Fixed broadcast discovery port used by clients to find
+	servers on the LAN (server listens and responds on this UDP port).
+- **TCP 12345**: Default TCP discovery port where servers accept client
+	connections after discovery (configurable via server command-line).
+- **Ephemeral TCP ports**: The implementation uses a single TCP connection for
+	gameplay; additional ephemeral ports are not required by default.
 
 ## Testing
 
+The repository includes unit and integration tests. Use the included Makefile
+targets to build and run tests:
+
 ```bash
-make test         # Run all tests (33 total)
-make test-game    # Game logic tests only
-make test-network # Network layer tests only
+make test          # Run integration and unit tests
+make test-game     # Game logic unit tests only
+make test-network  # Network layer unit tests only
 ```
 
 ## Project Structure
 
 ```
-├── include/           # Header files
-│   ├── common/       # Shared definitions
-│   ├── game/         # Game logic interfaces
-│   ├── network/      # Network layer interfaces
-│   ├── server/       # Server component interfaces
-│   └── client/       # Client component interfaces
-├── src/              # Implementation files
-│   ├── common/       # Shared implementations
-│   ├── game/         # Game logic
-│   ├── network/      # Networking (single-socket)
-│   ├── server/       # Server components
-│   └── client/       # Client components
-├── tests/            # Unit tests
-├── build/            # Compiled binaries
-└── docs/             # Documentation
+├── include/           # Header files (public interfaces)
+│   ├── common/        # Shared protocol/types/messages
+│   ├── game/          # Game logic interfaces (board, rules, player)
+│   ├── network/       # Network interfaces (connection, serialization)
+│   ├── server/        # Server interfaces (game manager, matchmaking)
+│   └── client/        # Client interfaces (UI, commands)
+├── src/               # Implementation files
+│   ├── common/        # Shared implementations
+│   ├── game/          # Game logic (pure, no networking)
+│   ├── network/       # Networking (discovery + TCP messaging)
+│   ├── server/        # Server implementation and main
+│   └── client/        # Client implementation and main
+├── tests/             # Unit and integration tests
+├── build/             # Compiled binaries (output)
+├── data/              # Runtime data used by server
+└── docs/              # Additional documentation
 ```
 
 ## Game Rules
@@ -135,34 +145,28 @@ Awale follows traditional Mancala rules with the feeding rule:
 
 ## Connection Process
 
-1. **UDP Discovery**: Client broadcasts "find server" request
-2. **Server Response**: Server replies with IP and TCP port
-3. **Direct Connect**: Client connects to server's TCP port
-4. **Authentication**: Client sends MSG_CONNECT, server responds with session
-5. **Gameplay**: Bidirectional communication over single TCP socket
-
-## Troubleshooting
-
-- **Connection Issues**: Check firewall settings, ensure UDP/TCP ports are open
-- **Build Errors**: Ensure C11 compiler and POSIX headers are available
-- **Windows Users**: Use WSL for native POSIX support
-- **Port Conflicts**: Server will use default ports, change if needed
-
-## Documentation
-
-- `ARCHITECTURE.md` - Detailed module descriptions and data flows
-- `RULES.md` - Complete Awale game rules
-- `UDP_BROADCAST_DISCOVERY.md` - Network discovery implementation
-- `USER_MANUAL.md` - User guide and examples
+1. **UDP Discovery**: Client broadcasts "AWALE_DISCOVERY" on UDP `12346`.
+2. **Server Response**: Server replies with `AWALE_SERVER:<port>` where
+	`<port>` is the TCP discovery port (default `12345`).
+3. **TCP Connect**: Client connects to the server's TCP discovery port.
+4. **Handshake**: Client sends `MSG_CONNECT` (pseudo and protocol version);
+	server replies with `MSG_CONNECT_ACK` and session information.
+5. **Gameplay**: Clients and server exchange typed messages over the single
+	TCP connection (message header: 16 bytes: type, length, sequence, reserved).
 
 ## Development
 
 The codebase emphasizes:
-- **Clean Interfaces**: Each module has well-defined responsibilities
-- **Test Coverage**: Automated tests for critical functionality
-- **Error Handling**: Comprehensive error codes and validation
-- **Thread Safety**: Proper synchronization for concurrent operations
 
-## License
+- **Clean Interfaces**: Game logic is independent of networking and UI.
+- **Test Coverage**: Unit tests for game logic and network serialization.
+- **Error Handling**: Functions return `error_code_t` values defined in
+	`include/common/types.h`.
+- **Thread Safety**: Server uses per-game mutexes to allow concurrent games.
 
-This educational implementation is provided as-is for learning purposes. See individual files for any licensing information.
+## AI assistance
+
+Some parts of the implementation, refactors, tests and documentation were produced 
+with the help of AI-assisted developer tools. During development we used the VS Code
+GitHub Copilot and the Kilo Code extensions mostly in agent mode, with three models: 
+GPT-5 mini, Grok Code Fast 1, and Claude Sonnet 4.5.

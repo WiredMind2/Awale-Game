@@ -21,9 +21,9 @@
 /* List connected players */
 void cmd_list_players(void) {
     session_t* session = client_state_get_session();
-    
+
     client_log_info(CLIENT_LOG_LISTING_PLAYERS);
-    
+
     error_code_t err = session_send_message(session, MSG_LIST_PLAYERS, NULL, 0);
     if (err != SUCCESS) {
         system("clear");
@@ -35,36 +35,28 @@ void cmd_list_players(void) {
         return;
     }
     message_type_t type;
-    msg_player_list_t list;
+    msg_player_list_t* list = calloc(1, sizeof(msg_player_list_t));
+    if (!list) {
+        client_log_error("Memory allocation failed");
+        return;
+    }
     size_t size;
 
-    err = session_recv_message_timeout(session, &type, &list, sizeof(list), &size, 5000);
+    err = session_recv_message_timeout(session, &type, list, sizeof(*list), &size, 10000, NULL, 0);
     if (err == ERR_TIMEOUT) {
-        system("clear");
-        printf("Server timeout. Please try again.\n");
-        printf("\nPress Enter to return to menu...");
-        fflush(stdout);
-        char dummy[2];
-        read_line(dummy, 2);
+        client_log_error(CLIENT_LOG_TIMEOUT_SERVER);
+        free(list);
         return;
     }
     if (err != SUCCESS || type != MSG_PLAYER_LIST) {
-        system("clear");
-        printf("Error receiving response from server.\n");
-        printf("\nPress Enter to return to menu...");
-        fflush(stdout);
-        char dummy[2];
-        read_line(dummy, 2);
+        client_log_error(CLIENT_LOG_ERROR_RECEIVING_RESPONSE);
+        free(list);
         return;
     }
-    
-    system("clear");
-    ui_display_player_list(&list);
 
-    printf("\nPress Enter to return to menu...");
-    fflush(stdout);
-    char dummy[2];
-    read_line(dummy, 2);
+    printf("Received player list with %d players\n", list->count);
+    ui_display_player_list(list);
+    free(list);
 }
 
 /* Challenge a player */
@@ -105,11 +97,12 @@ __attribute__((unused)) void cmd_challenge_player(void)
     }
     
     /* Wait for acknowledgment */
+    message_type_t expected[] = {MSG_CHALLENGE_SENT, MSG_ERROR};
     message_type_t type;
     char response[MAX_MESSAGE_SIZE];
     size_t size;
-    
-    err = session_recv_message_timeout(session, &type, response, MAX_MESSAGE_SIZE, &size, 5000);
+
+    err = session_recv_message_timeout(session, &type, response, MAX_MESSAGE_SIZE, &size, 5000, expected, 2);
     if (err == ERR_TIMEOUT) {
         client_log_error(CLIENT_LOG_TIMEOUT_SERVER);
         return;
@@ -118,12 +111,12 @@ __attribute__((unused)) void cmd_challenge_player(void)
         client_log_error(CLIENT_LOG_ERROR_RECEIVING_RESPONSE_WITH_ERR, error_to_string(err));
         return;
     }
-    
+
     if (type == MSG_CHALLENGE_SENT) {
-    ui_display_challenge_sent(opponent);
+        ui_display_challenge_sent(opponent);
     } else if (type == MSG_ERROR) {
         msg_error_t* error = (msg_error_t*)response;
-    ui_display_challenge_error(error->error_msg);
+        ui_display_challenge_error(error->error_msg);
     }
 
     printf("\nPress Enter to return to menu...");
@@ -216,7 +209,7 @@ __attribute__((unused)) void cmd_set_bio(void)
     char dummy[1];
     size_t size;
 
-    err = session_recv_message_timeout(session, &type, dummy, sizeof(dummy), &size, 5000);
+    err = session_recv_message_timeout(session, &type, dummy, sizeof(dummy), &size, 5000, NULL, 0);
     if (err == ERR_TIMEOUT) {
         client_log_error(CLIENT_LOG_TIMEOUT_SERVER);
         return;
@@ -272,7 +265,7 @@ __attribute__((unused)) void cmd_view_bio(void)
     msg_bio_response_t response;
     size_t size;
 
-    err = session_recv_message_timeout(session, &type, &response, sizeof(response), &size, 5000);
+    err = session_recv_message_timeout(session, &type, &response, sizeof(response), &size, 5000, NULL, 0);
     if (err == ERR_TIMEOUT) {
         client_log_error(CLIENT_LOG_TIMEOUT_SERVER);
         return;
@@ -327,7 +320,7 @@ __attribute__((unused)) void cmd_view_player_stats(void)
     msg_player_stats_t response;
     size_t size;
 
-    err = session_recv_message_timeout(session, &type, &response, sizeof(response), &size, 5000);
+    err = session_recv_message_timeout(session, &type, &response, sizeof(response), &size, 5000, NULL, 0);
     if (err == ERR_TIMEOUT) {
         client_log_error(CLIENT_LOG_TIMEOUT_SERVER);
         return;
@@ -467,11 +460,14 @@ __attribute__((unused)) void cmd_friend_management(void)
                 }
 
                 message_type_t type;
-                char dummy[1];
+                char response[MAX_MESSAGE_SIZE];
                 size_t size;
-                err = session_recv_message_timeout(session, &type, dummy, sizeof(dummy), &size, 5000);
+                err = session_recv_message_timeout(session, &type, response, sizeof(response), &size, 5000, NULL, 0);
                 if (err == SUCCESS && type == MSG_CHALLENGE_SENT) {  /* Reuse ACK message */
                     printf(CLIENT_UI_FRIEND_ADD_SUCCESS, friend_name);
+                } else if (err == SUCCESS && type == MSG_ERROR) {
+                    msg_error_t* error = (msg_error_t*)response;
+                    printf(CLIENT_UI_FRIEND_ADD_ERROR, error->error_msg);
                 } else {
                     printf(CLIENT_UI_FRIEND_ADD_ERROR, "Server error");
                 }
@@ -499,11 +495,14 @@ __attribute__((unused)) void cmd_friend_management(void)
                 }
 
                 message_type_t type;
-                char dummy[1];
+                char response[MAX_MESSAGE_SIZE];
                 size_t size;
-                err = session_recv_message_timeout(session, &type, dummy, sizeof(dummy), &size, 5000);
+                err = session_recv_message_timeout(session, &type, response, sizeof(response), &size, 5000, NULL, 0);
                 if (err == SUCCESS && type == MSG_CHALLENGE_SENT) {  /* Reuse ACK message */
                     printf(CLIENT_UI_FRIEND_REMOVE_SUCCESS, friend_name);
+                } else if (err == SUCCESS && type == MSG_ERROR) {
+                    msg_error_t* error = (msg_error_t*)response;
+                    printf(CLIENT_UI_FRIEND_REMOVE_ERROR, error->error_msg);
                 } else {
                     printf(CLIENT_UI_FRIEND_REMOVE_ERROR, "Server error");
                 }
@@ -520,7 +519,7 @@ __attribute__((unused)) void cmd_friend_management(void)
                 message_type_t type;
                 msg_list_friends_t friends;
                 size_t size;
-                err = session_recv_message_timeout(session, &type, &friends, sizeof(friends), &size, 5000);
+                err = session_recv_message_timeout(session, &type, &friends, sizeof(friends), &size, 5000, NULL, 0);
                 if (err == ERR_TIMEOUT) {
                     client_log_error(CLIENT_LOG_TIMEOUT_SERVER);
                     break;
@@ -823,7 +822,7 @@ __attribute__((unused)) void cmd_list_saved_games(void) {
     msg_saved_game_list_t list;
     size_t size;
 
-    err = session_recv_message_timeout(session, &type, &list, sizeof(list), &size, 5000);
+    err = session_recv_message_timeout(session, &type, &list, sizeof(list), &size, 5000, NULL, 0);
     if (err == ERR_TIMEOUT) {
         client_log_error(CLIENT_LOG_TIMEOUT_SERVER);
         return;
@@ -871,7 +870,7 @@ __attribute__((unused)) void cmd_view_saved_game(void) {
     msg_saved_game_list_t list;
     size_t size;
 
-    err = session_recv_message_timeout(session, &type, &list, sizeof(list), &size, 5000);
+    err = session_recv_message_timeout(session, &type, &list, sizeof(list), &size, 5000, NULL, 0);
     if (err == ERR_TIMEOUT) {
         client_log_error(CLIENT_LOG_TIMEOUT_SERVER);
         return;
@@ -929,7 +928,7 @@ __attribute__((unused)) void cmd_view_saved_game(void) {
 
     msg_saved_game_state_t board_state;
 
-    err = session_recv_message_timeout(session, &type, &board_state, sizeof(board_state), &size, 5000);
+    err = session_recv_message_timeout(session, &type, &board_state, sizeof(board_state), &size, 5000, NULL, 0);
     if (err == ERR_TIMEOUT) {
         client_log_error(CLIENT_LOG_TIMEOUT_SERVER);
         return;
@@ -994,7 +993,7 @@ __attribute__((unused)) void cmd_profile(void)
                 msg_bio_response_t bio_response;
                 size_t size;
 
-                err = session_recv_message_timeout(session, &type, &bio_response, sizeof(bio_response), &size, 5000);
+                err = session_recv_message_timeout(session, &type, &bio_response, sizeof(bio_response), &size, 5000, NULL, 0);
                 if (err == ERR_TIMEOUT) {
                     client_log_error(CLIENT_LOG_TIMEOUT_SERVER);
                     break;
@@ -1026,7 +1025,7 @@ __attribute__((unused)) void cmd_profile(void)
                 msg_player_stats_t response;
                 size_t size;
 
-                err = session_recv_message_timeout(session, &type, &response, sizeof(response), &size, 5000);
+                err = session_recv_message_timeout(session, &type, &response, sizeof(response), &size, 5000, NULL, 0);
                 if (err == ERR_TIMEOUT) {
                     client_log_error(CLIENT_LOG_TIMEOUT_SERVER);
                     break;

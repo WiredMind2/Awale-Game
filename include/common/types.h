@@ -35,6 +35,9 @@ typedef enum {
     ERR_MAX_CAPACITY = -12,
     ERR_DUPLICATE = -13,
     ERR_TIMEOUT = -14,
+    ERR_RATE_LIMITED = -15,
+    ERR_TOO_MANY_DECLINES = -16,
+    ERR_UNEXPECTED_MESSAGE = -17,
     ERR_UNKNOWN = -99
 } error_code_t;
 
