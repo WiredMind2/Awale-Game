@@ -177,9 +177,6 @@ TEST(board_starvation_prevention) {
     int captured = 0;
     error_code_t err = board_execute_move(&board, PLAYER_A, 0, &captured);
     
-    /* Debug: print board state */
-    printf("DEBUG Starvation: err=%d, captured=%d, pits 0-5: %d %d %d %d %d %d\n", 
-           err, captured, board.pits[0], board.pits[1], board.pits[2], board.pits[3], board.pits[4], board.pits[5]);
     
     /* This move should be allowed since it feeds the opponent */
     assert(err == SUCCESS);

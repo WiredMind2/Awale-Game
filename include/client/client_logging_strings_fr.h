@@ -115,6 +115,7 @@
 #define CLIENT_LOG_SPECTATOR_MODE_HEADER "\n=== MODE SPECTATEUR ===\n"
 #define CLIENT_LOG_SPECTATOR_MODE_TITLE "   MODE SPECTATEUR\n"
 #define CLIENT_LOG_SPECTATOR_MODE_SEPARATOR "═══════════════════════════════════════════════════════\n\n"
+#define CLIENT_LOG_SPECTATOR_MODE_INFO "Regardez d'autres joueurs jouer une partie.\n"
 #define CLIENT_LOG_FAILED_REQUEST_GAME_LIST "Échec de requête de la liste des parties\n"
 #define CLIENT_LOG_TIMEOUT_GAME_LIST "Délai dépassé en attente de la liste des parties\n"
 #define CLIENT_LOG_FAILED_RECEIVE_GAME_LIST "Échec de réception de la liste des parties\n"
@@ -172,10 +173,13 @@
 #define CLIENT_UI_MENU_OPTION6 "  6. Voir les statistiques du joueur\n"
 #define CLIENT_UI_MENU_OPTION7 "  7. Mode jeu\n"
 #define CLIENT_UI_MENU_OPTION8 "  8. Chat"
-#define CLIENT_UI_MENU_ACTIVE " [%d partie%s active%s]"
+#define CLIENT_UI_MENU_ACTIVE " [%d partie%s active]"
 #define CLIENT_UI_MENU_LINE6 "\n"
 #define CLIENT_UI_MENU_OPTION9 "  9. Mode spectateur\n"
 #define CLIENT_UI_MENU_OPTION10 "  10. Quitter\n"
+#define CLIENT_UI_MENU_OPTION11 "  11. Gestion des amis\n"
+#define CLIENT_UI_MENU_OPTION12 "  12. Parties sauvegardées\n"
+#define CLIENT_UI_MENU_OPTION13 "  13. Voir statistiques personnelles\n"
 #define CLIENT_UI_MENU_LINE7 "═════════════════════════════════════════════════════════\n"
 #define CLIENT_UI_MENU_PROMPT "Votre choix : "
 
@@ -341,5 +345,37 @@
 #define CLIENT_UI_BOARD_DETAILED_CURRENT_TURN "Tour du joueur: %s\n"
 #define CLIENT_UI_BOARD_DETAILED_LINE8 "═══════════════════════════════════════════════════════════\n"
 #define CLIENT_UI_BOARD_DETAILED_LINE9 "\n"
+
+/* Friend management UI constants */
+#define CLIENT_UI_FRIEND_ADD_HEADER "\nAjouter un ami\n"
+#define CLIENT_UI_FRIEND_ADD_PROMPT "Entrez le pseudo de l'ami : "
+#define CLIENT_UI_FRIEND_ADD_ERROR "Erreur lors de l'ajout de l'ami : %s\n"
+#define CLIENT_UI_FRIEND_ADD_SUCCESS "Ami %s ajouté avec succès !\n"
+
+#define CLIENT_UI_FRIEND_REMOVE_HEADER "\nSupprimer un ami\n"
+#define CLIENT_UI_FRIEND_REMOVE_PROMPT "Entrez le pseudo de l'ami à supprimer : "
+#define CLIENT_UI_FRIEND_REMOVE_ERROR "Erreur lors de la suppression de l'ami : %s\n"
+#define CLIENT_UI_FRIEND_REMOVE_SUCCESS "Ami %s supprimé avec succès !\n"
+
+/* Saved games UI constants */
+#define CLIENT_LOG_LIST_SAVED_GAMES_HEADER "\nListe des parties sauvegardées\n"
+#define CLIENT_LOG_LIST_SAVED_GAMES_PROMPT "Sélectionnez une partie sauvegardée : "
+
+#define CLIENT_LOG_VIEW_SAVED_GAME_HEADER "\nVoir une partie sauvegardée\n"
+
+/* Friend menu UI constants */
+#define CLIENT_UI_FRIEND_MENU_HEADER "Gestion des amis\n"
+#define CLIENT_UI_FRIEND_MENU_SEPARATOR "──────────────────────────────\n"
+#define CLIENT_UI_FRIEND_MENU_OPTION1 "  1. Ajouter un ami\n"
+#define CLIENT_UI_FRIEND_MENU_OPTION2 "  2. Supprimer un ami\n"
+#define CLIENT_UI_FRIEND_MENU_OPTION3 "  3. Voir mes amis\n"
+#define CLIENT_UI_FRIEND_MENU_OPTION4 "  0. Retour au menu\n"
+#define CLIENT_UI_FRIEND_MENU_PROMPT "Votre choix : "
+
+#define CLIENT_UI_FRIEND_LIST_HEADER "Ma liste d'amis (%d) :\n"
+#define CLIENT_UI_FRIEND_LIST_SEPARATOR "──────────────────────────────\n"
+#define CLIENT_UI_FRIEND_LIST_EMPTY "  (Aucun ami ajouté)\n"
+#define CLIENT_UI_FRIEND_LIST_ITEM "  %d. %s\n"
+#define CLIENT_UI_FRIEND_LIST_FOOTER "──────────────────────────────\n"
 
 #endif /* CLIENT_LOGGING_STRINGS_FR_H */
